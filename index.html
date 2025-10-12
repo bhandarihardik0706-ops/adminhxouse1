@@ -108,12 +108,8 @@
     </div>
 
     <!-- New Order Alert Modal -->
-    <div id="order-alert" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-        <div class="bg-card p-8 rounded-lg shadow-2xl text-center">
-            <h2 class="text-3xl font-bold text-destructive mb-4">New Order Received!</h2>
-            <p class="text-muted-foreground mb-6">A new order has been placed.</p>
-            <button id="dismiss-alert-btn" class="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge</button>
-        </div>
+    <div id="order-alert" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+        <!-- Content injected by JavaScript -->
     </div>
     
     <!-- Embedded Audio -->
@@ -274,7 +270,7 @@ async function renderDashboard(container) {
         
         <div class="mt-8">
             <h3 class="text-lg font-semibold mb-4">New Live Orders</h3>
-            <div id="live-orders-container" class="space-y-3">
+            <div id="live-orders-container" class="space-y-4">
                 <!-- Live orders will be injected here -->
             </div>
         </div>
@@ -325,9 +321,16 @@ async function renderDashboard(container) {
 }
 
 function createOrderCardHTML(order) {
-    // Uses the state cache for customer and table info
-    const customerName = state.customersCache[order.customer_id] || 'N/A';
-    const tableNumber = state.tablesCache[order.table_id] || 'N/A';
+    const customerName = order.customers?.name || 'N/A';
+    const tableNumber = order.tables?.table_number || 'N/A';
+    const specialInstructions = order.special_instructions ? `<p class="text-sm mt-2 text-red-600 font-semibold">Instructions: ${order.special_instructions}</p>` : '';
+
+    const itemsHTML = order.order_items.map(item => `
+        <div class="flex justify-between text-sm py-1">
+            <span>${item.quantity} x ${item.products?.name || '[Deleted Product]'}</span>
+            <span>₹${(item.price_at_time_of_order * item.quantity).toFixed(2)}</span>
+        </div>
+    `).join('');
 
     return `
         <div id="order-card-${order.id}" class="bg-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500 fade-in">
@@ -337,22 +340,30 @@ function createOrderCardHTML(order) {
                     <p class="text-sm text-muted-foreground">
                         For ${customerName} at Table #${tableNumber}
                     </p>
+                    <p class="text-xs text-muted-foreground mt-1">Received at ${new Date(order.created_at).toLocaleTimeString()}</p>
                 </div>
-                <button data-id="${order.id}" class="acknowledge-order-btn bg-blue-500 text-white px-3 py-1 text-xs font-bold rounded-full">Acknowledge</button>
+                <button data-id="${order.id}" class="acknowledge-order-btn bg-blue-500 text-white px-3 py-1 text-xs font-bold rounded-full flex-shrink-0">Acknowledge</button>
             </div>
-             <p class="text-xs text-muted-foreground mt-2">Received at ${new Date(order.created_at).toLocaleTimeString()}</p>
+            <div class="mt-3 border-t border-border pt-2">
+                ${itemsHTML}
+            </div>
+            ${specialInstructions}
         </div>
     `;
 }
 
+
 async function loadLiveOrders() {
     const { data, error } = await supabase
         .from('orders')
-        .select('*') // We only need IDs, the rest comes from cache
+        .select('*, order_items(*, products(name)), customers(name), tables(table_number)')
         .eq('status', 'received')
         .order('created_at', { ascending: true });
 
-    if (state.currentPage !== 'dashboard' || error) return;
+    if (state.currentPage !== 'dashboard' || error) {
+        if(error) console.error("Error loading live orders:", error);
+        return;
+    }
     
     const container = $('#live-orders-container');
     if (!container) return;
@@ -363,6 +374,7 @@ async function loadLiveOrders() {
         container.innerHTML = data.map(createOrderCardHTML).join('');
     }
 }
+
 
 async function loadDashboardStats() {
     // Fetch and render data
@@ -819,16 +831,50 @@ async function initializeApp() {
     // Initialize audio context on the first user interaction anywhere on the page
     document.body.addEventListener('click', initializeAudio, { once: true });
     
-    $('#dismiss-alert-btn').addEventListener('click', () => {
-        stopOrderAlarm();
-        $('#order-alert').classList.add('hidden');
-    });
-
     // --- REALTIME ORDER SUBSCRIPTION ---
     supabase.channel('public:orders')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, async (payload) => {
             
             if (payload.eventType === 'INSERT') {
+                const { data: newOrderDetails, error } = await supabase
+                    .from('orders')
+                    .select('*, order_items(*, products(name)), customers(name), tables(table_number)')
+                    .eq('id', payload.new.id)
+                    .single();
+
+                if (error) {
+                    console.error("Could not fetch new order details for alert", error);
+                } else {
+                    const customerName = newOrderDetails.customers?.name || 'N/A';
+                    const tableNumber = newOrderDetails.tables?.table_number || 'N/A';
+                    const specialInstructions = newOrderDetails.special_instructions ? `<p class="text-sm mt-4 text-red-600 font-semibold">Instructions: ${newOrderDetails.special_instructions}</p>` : '';
+                    const itemsHTML = newOrderDetails.order_items.map(item => `
+                        <div class="flex justify-between text-sm py-1">
+                            <span>${item.quantity} x ${item.products?.name || '[Deleted Product]'}</span>
+                            <span>₹${(item.price_at_time_of_order * item.quantity).toFixed(2)}</span>
+                        </div>
+                    `).join('');
+
+                    const alertModal = $('#order-alert');
+                    alertModal.innerHTML = `
+                        <div class="bg-card p-6 rounded-lg shadow-2xl w-full max-w-md text-left">
+                            <h2 class="text-2xl font-bold text-destructive mb-2">New Order Received!</h2>
+                            <p class="text-sm text-muted-foreground mb-4">For ${customerName} at Table #${tableNumber}</p>
+                            
+                            <div class="max-h-60 overflow-y-auto border rounded-lg p-3 bg-secondary">
+                                ${itemsHTML}
+                                <div class="flex justify-between p-2 font-bold border-t mt-2"><p>Total</p><p>₹${newOrderDetails.total_amount.toFixed(2)}</p></div>
+                            </div>
+                            ${specialInstructions}
+                            <button id="dismiss-alert-btn" class="w-full mt-6 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge & Close</button>
+                        </div>
+                    `;
+                    $('#dismiss-alert-btn').addEventListener('click', () => {
+                        stopOrderAlarm();
+                        $('#order-alert').classList.add('hidden');
+                    });
+                }
+                
                 if(state.audioInitialized) {
                     startOrderAlarm();
                     $('#order-alert').classList.remove('hidden');
@@ -836,12 +882,11 @@ async function initializeApp() {
                     showToast("New Order! (Audio not enabled)");
                 }
 
-                if (state.currentPage === 'dashboard') {
-                    const newOrder = payload.new;
+                if (state.currentPage === 'dashboard' && newOrderDetails) {
                     const container = $('#live-orders-container');
                     const placeholder = container.querySelector('p');
                     if (placeholder) placeholder.remove();
-                    container.insertAdjacentHTML('beforeend', createOrderCardHTML(newOrder));
+                    container.insertAdjacentHTML('beforeend', createOrderCardHTML(newOrderDetails));
                 }
             }
 
@@ -906,4 +951,3 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
-

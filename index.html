@@ -108,8 +108,12 @@
     </div>
 
     <!-- New Order Alert Modal -->
-    <div id="order-alert" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-        <!-- Content injected by JavaScript -->
+    <div id="order-alert" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+        <div class="bg-card p-8 rounded-lg shadow-2xl text-center">
+            <h2 class="text-3xl font-bold text-destructive mb-4">New Order Received!</h2>
+            <p class="text-muted-foreground mb-6">A new order has been placed.</p>
+            <button id="dismiss-alert-btn" class="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge</button>
+        </div>
     </div>
     
     <!-- Embedded Audio -->
@@ -270,7 +274,7 @@ async function renderDashboard(container) {
         
         <div class="mt-8">
             <h3 class="text-lg font-semibold mb-4">New Live Orders</h3>
-            <div id="live-orders-container" class="space-y-4">
+            <div id="live-orders-container" class="space-y-3">
                 <!-- Live orders will be injected here -->
             </div>
         </div>
@@ -323,14 +327,6 @@ async function renderDashboard(container) {
 function createOrderCardHTML(order) {
     const customerName = order.customers?.name || 'N/A';
     const tableNumber = order.tables?.table_number || 'N/A';
-    const specialInstructions = order.special_instructions ? `<p class="text-sm mt-2 text-red-600 font-semibold">Instructions: ${order.special_instructions}</p>` : '';
-
-    const itemsHTML = order.order_items.map(item => `
-        <div class="flex justify-between text-sm py-1">
-            <span>${item.quantity} x ${item.products?.name || '[Deleted Product]'}</span>
-            <span>₹${(item.price_at_time_of_order * item.quantity).toFixed(2)}</span>
-        </div>
-    `).join('');
 
     return `
         <div id="order-card-${order.id}" class="bg-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500 fade-in">
@@ -340,41 +336,37 @@ function createOrderCardHTML(order) {
                     <p class="text-sm text-muted-foreground">
                         For ${customerName} at Table #${tableNumber}
                     </p>
-                    <p class="text-xs text-muted-foreground mt-1">Received at ${new Date(order.created_at).toLocaleTimeString()}</p>
                 </div>
-                <button data-id="${order.id}" class="acknowledge-order-btn bg-blue-500 text-white px-3 py-1 text-xs font-bold rounded-full flex-shrink-0">Acknowledge</button>
+                <button data-id="${order.id}" class="acknowledge-order-btn bg-blue-500 text-white px-3 py-1 text-xs font-bold rounded-full">Acknowledge</button>
             </div>
-            <div class="mt-3 border-t border-border pt-2">
-                ${itemsHTML}
-            </div>
-            ${specialInstructions}
+             <p class="text-xs text-muted-foreground mt-2">Received at ${new Date(order.created_at).toLocaleTimeString()}</p>
         </div>
     `;
 }
 
-
 async function loadLiveOrders() {
+    const container = $('#live-orders-container');
+    if (!container) return; // Exit if page has changed
+
+    container.innerHTML = `<p class="text-center text-muted-foreground p-4">Checking for new orders...</p>`;
+
     const { data, error } = await supabase
         .from('orders')
-        .select('*, order_items(*, products(name)), customers(name), tables(table_number)')
+        .select('*, customers(name), tables(table_number)')
         .eq('status', 'received')
         .order('created_at', { ascending: true });
 
-    if (state.currentPage !== 'dashboard' || error) {
-        if(error) console.error("Error loading live orders:", error);
+    if (error) {
+        container.innerHTML = `<p class="text-center text-destructive p-4">Error loading live orders: ${error.message}</p>`;
         return;
     }
-    
-    const container = $('#live-orders-container');
-    if (!container) return;
-    
-    if (data.length === 0) {
-        container.innerHTML = `<p class="text-center text-muted-foreground p-4">No new orders waiting.</p>`;
-    } else {
+
+    if (data && data.length > 0) {
         container.innerHTML = data.map(createOrderCardHTML).join('');
+    } else {
+        container.innerHTML = `<p class="text-center text-muted-foreground p-4">No new orders waiting.</p>`;
     }
 }
-
 
 async function loadDashboardStats() {
     // Fetch and render data
@@ -568,7 +560,9 @@ async function renderOrders(container) {
                 <div>Status</div>
                 <div>Actions</div>
             </div>
-            <div id="orders-table-body" class="divide-y divide-border"></div>
+            <div id="orders-table-body" class="divide-y divide-border">
+                 <div class="text-center p-4 text-muted-foreground">Loading history...</div>
+            </div>
         </div>
         <div id="order-detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"></div>
     `;
@@ -576,15 +570,16 @@ async function renderOrders(container) {
     const loadOrders = async () => {
         const { data, error } = await supabase.from('orders').select('*, customers(name), tables(table_number)').order('created_at', { ascending: false });
         
-        if (state.currentPage !== 'orders') return;
+        const tableBody = $('#orders-table-body');
+        if (!tableBody) return; // Exit if page has changed
 
         if (error) {
-            showToast('Failed to load orders.');
+            tableBody.innerHTML = `<div class="text-center p-4 text-destructive">Error loading orders: ${error.message}</div>`;
             return;
         }
-        const tableBody = $('#orders-table-body');
-        if (tableBody) {
-            tableBody.innerHTML = data.map(order => `
+
+        if (data && data.length > 0) {
+             tableBody.innerHTML = data.map(order => `
                 <div class="grid grid-cols-6 gap-4 items-center px-4 py-3 text-sm">
                     <div class="font-mono text-xs">${order.id.slice(0, 8)}...</div>
                     <div>${order.customers?.name || 'N/A'}</div>
@@ -603,6 +598,8 @@ async function renderOrders(container) {
                     </div>
                 </div>
             `).join('');
+        } else {
+             tableBody.innerHTML = `<div class="text-center p-4 text-muted-foreground">No order history found.</div>`;
         }
     };
 
@@ -698,7 +695,7 @@ function renderQrGenerator(container) {
             return;
         }
         
-        const url = `https://hxousee.netlify.app/?table=${tableNumber}`;
+        const url = `https://hxouse1.onrender.com/?table=${tableNumber}`;
         const qrcodeContainer = $('#qrcode');
         qrcodeContainer.innerHTML = '';
         
@@ -831,79 +828,33 @@ async function initializeApp() {
     // Initialize audio context on the first user interaction anywhere on the page
     document.body.addEventListener('click', initializeAudio, { once: true });
     
+    $('#dismiss-alert-btn').addEventListener('click', () => {
+        stopOrderAlarm();
+        $('#order-alert').classList.add('hidden');
+    });
+
     // --- REALTIME ORDER SUBSCRIPTION ---
     supabase.channel('public:orders')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, async (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
             
+            // Handle new orders specifically for notifications
             if (payload.eventType === 'INSERT') {
-                const { data: newOrderDetails, error } = await supabase
-                    .from('orders')
-                    .select('*, order_items(*, products(name)), customers(name), tables(table_number)')
-                    .eq('id', payload.new.id)
-                    .single();
-
-                if (error) {
-                    console.error("Could not fetch new order details for alert", error);
-                } else {
-                    const customerName = newOrderDetails.customers?.name || 'N/A';
-                    const tableNumber = newOrderDetails.tables?.table_number || 'N/A';
-                    const specialInstructions = newOrderDetails.special_instructions ? `<p class="text-sm mt-4 text-red-600 font-semibold">Instructions: ${newOrderDetails.special_instructions}</p>` : '';
-                    const itemsHTML = newOrderDetails.order_items.map(item => `
-                        <div class="flex justify-between text-sm py-1">
-                            <span>${item.quantity} x ${item.products?.name || '[Deleted Product]'}</span>
-                            <span>₹${(item.price_at_time_of_order * item.quantity).toFixed(2)}</span>
-                        </div>
-                    `).join('');
-
-                    const alertModal = $('#order-alert');
-                    alertModal.innerHTML = `
-                        <div class="bg-card p-6 rounded-lg shadow-2xl w-full max-w-md text-left">
-                            <h2 class="text-2xl font-bold text-destructive mb-2">New Order Received!</h2>
-                            <p class="text-sm text-muted-foreground mb-4">For ${customerName} at Table #${tableNumber}</p>
-                            
-                            <div class="max-h-60 overflow-y-auto border rounded-lg p-3 bg-secondary">
-                                ${itemsHTML}
-                                <div class="flex justify-between p-2 font-bold border-t mt-2"><p>Total</p><p>₹${newOrderDetails.total_amount.toFixed(2)}</p></div>
-                            </div>
-                            ${specialInstructions}
-                            <button id="dismiss-alert-btn" class="w-full mt-6 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge & Close</button>
-                        </div>
-                    `;
-                    $('#dismiss-alert-btn').addEventListener('click', () => {
-                        stopOrderAlarm();
-                        $('#order-alert').classList.add('hidden');
-                    });
-                }
-                
                 if(state.audioInitialized) {
                     startOrderAlarm();
                     $('#order-alert').classList.remove('hidden');
                 } else {
-                    showToast("New Order! (Audio not enabled)");
-                }
-
-                if (state.currentPage === 'dashboard' && newOrderDetails) {
-                    const container = $('#live-orders-container');
-                    const placeholder = container.querySelector('p');
-                    if (placeholder) placeholder.remove();
-                    container.insertAdjacentHTML('beforeend', createOrderCardHTML(newOrderDetails));
+                    showToast("New Order Received!");
                 }
             }
 
-            if (payload.eventType === 'UPDATE') {
-                 if (state.currentPage === 'dashboard') {
-                    const updatedOrder = payload.new;
-                    if (updatedOrder.status !== 'received') {
-                         const card = $(`#order-card-${updatedOrder.id}`);
-                         if (card) {
-                            card.classList.add('fade-out');
-                            card.addEventListener('animationend', () => card.remove());
-                         }
-                    }
-                 }
+            // If the dashboard is active, refresh its data to reflect any change
+            if (state.currentPage === 'dashboard') {
+                loadDashboardStats(); // Recalculate stats like total orders/revenue
+                loadLiveOrders();     // Refresh the list of new orders
             }
 
-             if (state.currentPage === 'orders') {
+            // If the main order tracking page is active, re-render it
+            if (state.currentPage === 'orders') {
                 PAGES.orders.render($('#page-content'));
             }
         })
@@ -951,3 +902,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
+
+

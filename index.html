@@ -137,8 +137,6 @@ const state = {
     audioInitialized: false,
     dashboardDateRange: '30d', // '1d', '7d', '30d'
     user: null,
-    customersCache: {},
-    tablesCache: {},
 };
 
 const ICONS = {
@@ -266,16 +264,16 @@ async function renderDashboard(container) {
                 <button class="date-range-btn px-3 py-1 rounded-md text-sm font-medium ${getActiveClass('30d')}" data-range="30d">30 Days</button>
             </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div id="card-orders" class="bg-card p-6 rounded-lg shadow-sm"></div>
-            <div id="card-revenue" class="bg-card p-6 rounded-lg shadow-sm"></div>
-            <div id="card-customers" class="bg-card p-6 rounded-lg shadow-sm"></div>
+        <div id="stats-container" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-card p-6 rounded-lg shadow-sm animate-pulse h-24"></div>
+            <div class="bg-card p-6 rounded-lg shadow-sm animate-pulse h-24"></div>
+            <div class="bg-card p-6 rounded-lg shadow-sm animate-pulse h-24"></div>
         </div>
         
         <div class="mt-8">
             <h3 class="text-lg font-semibold mb-4">New Live Orders</h3>
             <div id="live-orders-container" class="space-y-3">
-                <!-- Live orders will be injected here -->
+                <p class="text-center text-muted-foreground p-4">Loading...</p>
             </div>
         </div>
     `;
@@ -306,14 +304,17 @@ async function renderDashboard(container) {
             button.disabled = true;
             button.textContent = '...';
 
-            const { error } = await supabase.from('orders').update({ status: 'preparing' }).eq('id', orderId);
+            const { error } = await supabase.rpc('update_order_status', {
+                order_id_input: orderId,
+                new_status_input: 'preparing'
+            });
 
             if (error) {
                 showToast(`Error: ${error.message}`);
                 button.disabled = false;
                 button.textContent = 'Acknowledge';
             } else {
-                // No need to remove the card here, the real-time UPDATE event will handle it.
+                // The real-time UPDATE event will handle removing the card.
                 showToast('Order acknowledged.');
             }
         }
@@ -325,16 +326,13 @@ async function renderDashboard(container) {
 }
 
 function createOrderCardHTML(order) {
-    const customerName = order.customers?.name || 'N/A';
-    const tableNumber = order.tables?.table_number || 'N/A';
-
     return `
         <div id="order-card-${order.id}" class="bg-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500 fade-in">
             <div class="flex justify-between items-start">
                 <div>
                     <p class="font-bold">Order #${order.id.slice(0, 6)}</p>
                     <p class="text-sm text-muted-foreground">
-                        For ${customerName} at Table #${tableNumber}
+                        For ${order.customers?.name || 'N/A'} at Table #${order.tables?.table_number || 'N/A'}
                     </p>
                 </div>
                 <button data-id="${order.id}" class="acknowledge-order-btn bg-blue-500 text-white px-3 py-1 text-xs font-bold rounded-full">Acknowledge</button>
@@ -345,34 +343,40 @@ function createOrderCardHTML(order) {
 }
 
 async function loadLiveOrders() {
-    const container = $('#live-orders-container');
-    if (!container) return; // Exit if page has changed
-
-    container.innerHTML = `<p class="text-center text-muted-foreground p-4">Checking for new orders...</p>`;
-
     const { data, error } = await supabase
         .from('orders')
         .select('*, customers(name), tables(table_number)')
         .eq('status', 'received')
         .order('created_at', { ascending: true });
 
+    if (state.currentPage !== 'dashboard') return;
+    
+    const container = $('#live-orders-container');
+    if (!container) return;
+    
     if (error) {
-        container.innerHTML = `<p class="text-center text-destructive p-4">Error loading live orders: ${error.message}</p>`;
+        container.innerHTML = `<p class="text-center text-red-500 p-4">Error loading orders: ${error.message}</p>`;
         return;
     }
 
-    if (data && data.length > 0) {
-        container.innerHTML = data.map(createOrderCardHTML).join('');
-    } else {
+    if (data.length === 0) {
         container.innerHTML = `<p class="text-center text-muted-foreground p-4">No new orders waiting.</p>`;
+    } else {
+        container.innerHTML = data.map(createOrderCardHTML).join('');
     }
 }
 
 async function loadDashboardStats() {
+    const statsContainer = $('#stats-container');
+    
     // Fetch and render data
     const { data: allOrders, error: ordersError } = await supabase.from('orders').select('total_amount, created_at');
-    // Customers count is already cached, no need to fetch again unless necessary
-    const customersCount = Object.keys(state.customersCache).length;
+    const { count: customersCount, error: custError } = await supabase.from('customers').select('*', { count: 'exact', head: true });
+
+    if (ordersError || custError) {
+        if(statsContainer) statsContainer.innerHTML = `<p class="text-red-500 col-span-3">Error loading stats.</p>`;
+        return;
+    }
     
     // Filter logic
     const now = new Date();
@@ -386,10 +390,14 @@ async function loadDashboardStats() {
     const orders = allOrders.filter(order => new Date(order.created_at) >= startDate);
 
     // Render cards
-    if ($('#card-orders')) $('#card-orders').innerHTML = createStatCard('Total Orders', orders?.length || 0, '📝');
-    const totalRevenue = orders?.reduce((acc, order) => acc + order.total_amount, 0) || 0;
-    if ($('#card-revenue')) $('#card-revenue').innerHTML = createStatCard('Total Revenue', `₹${totalRevenue.toFixed(2)}`, '💰');
-    if ($('#card-customers')) $('#card-customers').innerHTML = createStatCard('Total Customers', customersCount || 0, '👥');
+    if (statsContainer) {
+        const totalRevenue = orders?.reduce((acc, order) => acc + order.total_amount, 0) || 0;
+        statsContainer.innerHTML = `
+            <div class="bg-card p-6 rounded-lg shadow-sm">${createStatCard('Total Orders', orders?.length || 0, '📝')}</div>
+            <div class="bg-card p-6 rounded-lg shadow-sm">${createStatCard('Total Revenue', `₹${totalRevenue.toFixed(2)}`, '💰')}</div>
+            <div class="bg-card p-6 rounded-lg shadow-sm">${createStatCard('Total Customers', customersCount || 0, '👥')}</div>
+        `;
+    }
 }
 
 function createStatCard(title, value, icon) {
@@ -560,9 +568,7 @@ async function renderOrders(container) {
                 <div>Status</div>
                 <div>Actions</div>
             </div>
-            <div id="orders-table-body" class="divide-y divide-border">
-                 <div class="text-center p-4 text-muted-foreground">Loading history...</div>
-            </div>
+            <div id="orders-table-body" class="divide-y divide-border"><p class="text-center text-muted-foreground p-4">Loading order history...</p></div>
         </div>
         <div id="order-detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"></div>
     `;
@@ -570,46 +576,67 @@ async function renderOrders(container) {
     const loadOrders = async () => {
         const { data, error } = await supabase.from('orders').select('*, customers(name), tables(table_number)').order('created_at', { ascending: false });
         
+        if (state.currentPage !== 'orders') return;
+
         const tableBody = $('#orders-table-body');
-        if (!tableBody) return; // Exit if page has changed
+        if (!tableBody) return;
 
         if (error) {
-            tableBody.innerHTML = `<div class="text-center p-4 text-destructive">Error loading orders: ${error.message}</div>`;
+            tableBody.innerHTML = `<p class="text-center text-red-500 p-4">Error loading order history: ${error.message}</p>`;
             return;
         }
 
-        if (data && data.length > 0) {
-             tableBody.innerHTML = data.map(order => `
-                <div class="grid grid-cols-6 gap-4 items-center px-4 py-3 text-sm">
-                    <div class="font-mono text-xs">${order.id.slice(0, 8)}...</div>
-                    <div>${order.customers?.name || 'N/A'}</div>
-                    <div>#${order.tables?.table_number || 'N/A'}</div>
-                    <div class="font-semibold">₹${order.total_amount.toFixed(2)}</div>
-                    <div>
-                        <select class="status-select bg-secondary border-border rounded-md p-1 text-xs" data-id="${order.id}">
-                            <option value="received" ${order.status === 'received' ? 'selected' : ''}>Received</option>
-                            <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option>
-                            <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
-                            <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-                        </select>
-                    </div>
-                    <div>
-                        <button class="view-order-btn text-blue-600 hover:underline" data-id="${order.id}">View</button>
-                    </div>
-                </div>
-            `).join('');
-        } else {
-             tableBody.innerHTML = `<div class="text-center p-4 text-muted-foreground">No order history found.</div>`;
+        if (data.length === 0) {
+            tableBody.innerHTML = `<p class="text-center text-muted-foreground p-4">No order history found.</p>`;
+            return;
         }
+
+        tableBody.innerHTML = data.map(order => `
+            <div class="grid grid-cols-6 gap-4 items-center px-4 py-3 text-sm">
+                <div class="font-mono text-xs">${order.id.slice(0, 8)}...</div>
+                <div>${order.customers?.name || 'N/A'}</div>
+                <div>#${order.tables?.table_number || 'N/A'}</div>
+                <div class="font-semibold">₹${order.total_amount.toFixed(2)}</div>
+                <div>
+                    <select class="status-select bg-secondary border-border rounded-md p-1 text-xs" data-id="${order.id}">
+                        <option value="received" ${order.status === 'received' ? 'selected' : ''}>Received</option>
+                        <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option>
+                        <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
+                        <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                    </select>
+                </div>
+                <div>
+                    <button class="view-order-btn text-blue-600 hover:underline" data-id="${order.id}">View</button>
+                </div>
+            </div>
+        `).join('');
     };
 
     await loadOrders();
 
     container.addEventListener('change', async (e) => {
         if (e.target.classList.contains('status-select')) {
-            const { error } = await supabase.from('orders').update({ status: e.target.value }).eq('id', e.target.dataset.id);
-            if (error) showToast(`Error: ${error.message}`);
-            else showToast('Order status updated.');
+            const orderId = e.target.dataset.id;
+            const newStatus = e.target.value;
+            const originalSelectedIndex = e.target.selectedIndex;
+            
+            e.target.disabled = true;
+
+            // Call the secure database function
+            const { error } = await supabase.rpc('update_order_status', {
+                new_status_input: newStatus,
+                order_id_input: orderId
+            });
+            
+            e.target.disabled = false;
+
+            if (error) {
+                console.error('RPC Error:', error);
+                showToast(`Error: ${error.message}`);
+                e.target.selectedIndex = originalSelectedIndex; // Revert dropdown on failure
+            } else {
+                showToast('Order status updated.');
+            }
         }
     });
 
@@ -786,22 +813,10 @@ function applyTheme(theme) {
     localStorage.setItem('theme', theme);
 }
 
-async function cacheData() {
-    const { data: customers, error: custError } = await supabase.from('customers').select('id, name');
-    if (customers) {
-        state.customersCache = customers.reduce((acc, c) => {
-            acc[c.id] = c.name;
-            return acc;
-        }, {});
-    }
-
-    const { data: tables, error: tableError } = await supabase.from('tables').select('id, table_number');
-    if (tables) {
-        state.tablesCache = tables.reduce((acc, t) => {
-            acc[t.id] = t.table_number;
-            return acc;
-        }, {});
-    }
+async function cacheInitialData() {
+    // This function is less critical now as data is fetched with joins,
+    // but can be kept for other potential caching needs.
+    console.log("Initial data caching...");
 }
 
 // --- INITIALIZATION ---
@@ -811,7 +826,7 @@ async function initializeApp() {
     
     $('#user-email').textContent = state.user.email;
 
-    await cacheData(); // Pre-load customer and table data
+    await cacheInitialData();
 
     applyTheme(localStorage.getItem('theme') || 'light');
     
@@ -833,29 +848,24 @@ async function initializeApp() {
         $('#order-alert').classList.add('hidden');
     });
 
-    // --- REALTIME ORDER SUBSCRIPTION ---
+    // --- REALTIME SUBSCRIPTION (Simplified & More Robust) ---
     supabase.channel('public:orders')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-            
-            // Handle new orders specifically for notifications
+            console.log('Realtime event received:', payload);
+
+            // Re-render the content of the current page to reflect any change
+            if (PAGES[state.currentPage]) {
+                PAGES[state.currentPage].render($('#page-content'));
+            }
+
+            // Specific logic for new order pop-up
             if (payload.eventType === 'INSERT') {
                 if(state.audioInitialized) {
                     startOrderAlarm();
                     $('#order-alert').classList.remove('hidden');
                 } else {
-                    showToast("New Order Received!");
+                    showToast("New Order! (Audio not enabled)");
                 }
-            }
-
-            // If the dashboard is active, refresh its data to reflect any change
-            if (state.currentPage === 'dashboard') {
-                loadDashboardStats(); // Recalculate stats like total orders/revenue
-                loadLiveOrders();     // Refresh the list of new orders
-            }
-
-            // If the main order tracking page is active, re-render it
-            if (state.currentPage === 'orders') {
-                PAGES.orders.render($('#page-content'));
             }
         })
         .subscribe();
@@ -897,10 +907,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initializeApp();
     } else {
         $('#login-screen').classList.remove('hidden');
+        $('#app-container').classList.add('hidden'); // Ensure app is hidden if no session
     }
 });
 </script>
 </body>
 </html>
-
 

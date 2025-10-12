@@ -313,9 +313,7 @@ async function renderDashboard(container) {
                 button.disabled = false;
                 button.textContent = 'Acknowledge';
             } else {
-                const card = $(`#order-card-${orderId}`);
-                card.classList.add('fade-out');
-                card.addEventListener('animationend', () => card.remove());
+                // No need to remove the card here, the real-time UPDATE event will handle it.
                 showToast('Order acknowledged.');
             }
         }
@@ -828,27 +826,41 @@ async function initializeApp() {
 
     // --- REALTIME ORDER SUBSCRIPTION ---
     supabase.channel('public:orders')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
-            if(state.audioInitialized) {
-                startOrderAlarm();
-                $('#order-alert').classList.remove('hidden');
-            } else {
-                showToast("New Order! (Audio not enabled)");
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+            
+            if (payload.eventType === 'INSERT') {
+                if(state.audioInitialized) {
+                    startOrderAlarm();
+                    $('#order-alert').classList.remove('hidden');
+                } else {
+                    showToast("New Order! (Audio not enabled)");
+                }
+
+                if (state.currentPage === 'dashboard') {
+                    const newOrder = payload.new;
+                    const container = $('#live-orders-container');
+                    const placeholder = container.querySelector('p');
+                    if (placeholder) placeholder.remove();
+                    container.insertAdjacentHTML('beforeend', createOrderCardHTML(newOrder));
+                }
             }
 
-            // If on dashboard, add the new order card instantly using cached data
-            if (state.currentPage === 'dashboard') {
-                const newOrder = payload.new;
-                const container = $('#live-orders-container');
-                const placeholder = container.querySelector('p');
-                if (placeholder) placeholder.remove(); // Remove "No new orders" message
-                container.insertAdjacentHTML('beforeend', createOrderCardHTML(newOrder));
+            if (payload.eventType === 'UPDATE') {
+                 if (state.currentPage === 'dashboard') {
+                    const updatedOrder = payload.new;
+                    if (updatedOrder.status !== 'received') {
+                         const card = $(`#order-card-${updatedOrder.id}`);
+                         if (card) {
+                            card.classList.add('fade-out');
+                            card.addEventListener('animationend', () => card.remove());
+                         }
+                    }
+                 }
             }
-            // If on the main orders page, just re-render the whole list
+
              if (state.currentPage === 'orders') {
                 PAGES.orders.render($('#page-content'));
             }
-
         })
         .subscribe();
 

@@ -31,8 +31,11 @@
         .bg-destructive { background-color: var(--destructive); }
         .text-destructive-foreground { color: var(--destructive-foreground); }
         .ring-ring { box-shadow: 0 0 0 2px var(--ring); }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        .fade-out { animation: fadeOut 0.5s ease-in-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); height: 0; padding: 0; margin: 0; border: 0; } }
+        
         /* Custom scrollbar for webkit browsers */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--secondary); }
@@ -134,6 +137,8 @@ const state = {
     audioInitialized: false,
     dashboardDateRange: '30d', // '1d', '7d', '30d'
     user: null,
+    customersCache: {},
+    tablesCache: {},
 };
 
 const ICONS = {
@@ -253,19 +258,25 @@ async function renderDashboard(container) {
 
     container.innerHTML = `
         ${audioInitHTML}
-        <div class="flex justify-end space-x-2 mb-4">
-            <button class="date-range-btn px-3 py-1 rounded-md text-sm font-medium ${getActiveClass('1d')}" data-range="1d">1 Day</button>
-            <button class="date-range-btn px-3 py-1 rounded-md text-sm font-medium ${getActiveClass('7d')}" data-range="7d">7 Days</button>
-            <button class="date-range-btn px-3 py-1 rounded-md text-sm font-medium ${getActiveClass('30d')}" data-range="30d">30 Days</button>
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Statistics</h3>
+            <div class="flex justify-end space-x-2">
+                <button class="date-range-btn px-3 py-1 rounded-md text-sm font-medium ${getActiveClass('1d')}" data-range="1d">1 Day</button>
+                <button class="date-range-btn px-3 py-1 rounded-md text-sm font-medium ${getActiveClass('7d')}" data-range="7d">7 Days</button>
+                <button class="date-range-btn px-3 py-1 rounded-md text-sm font-medium ${getActiveClass('30d')}" data-range="30d">30 Days</button>
+            </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div id="card-orders" class="bg-card p-6 rounded-lg shadow-sm"></div>
             <div id="card-revenue" class="bg-card p-6 rounded-lg shadow-sm"></div>
             <div id="card-customers" class="bg-card p-6 rounded-lg shadow-sm"></div>
         </div>
-        <div class="bg-card p-6 rounded-lg shadow-sm">
-            <h3 class="font-semibold mb-4">Site Visits</h3>
-            <canvas id="visits-chart"></canvas>
+        
+        <div class="mt-8">
+            <h3 class="text-lg font-semibold mb-4">New Live Orders</h3>
+            <div id="live-orders-container" class="space-y-3">
+                <!-- Live orders will be injected here -->
+            </div>
         </div>
     `;
 
@@ -287,40 +298,96 @@ async function renderDashboard(container) {
         });
     });
 
+    // Event listener for acknowledging orders
+    container.addEventListener('click', async (e) => {
+        const button = e.target.closest('.acknowledge-order-btn');
+        if (button) {
+            const orderId = button.dataset.id;
+            button.disabled = true;
+            button.textContent = '...';
+
+            const { error } = await supabase.from('orders').update({ status: 'preparing' }).eq('id', orderId);
+
+            if (error) {
+                showToast(`Error: ${error.message}`);
+                button.disabled = false;
+                button.textContent = 'Acknowledge';
+            } else {
+                const card = $(`#order-card-${orderId}`);
+                card.classList.add('fade-out');
+                card.addEventListener('animationend', () => card.remove());
+                showToast('Order acknowledged.');
+            }
+        }
+    });
+
+    // --- Load initial data ---
+    await loadDashboardStats();
+    await loadLiveOrders();
+}
+
+function createOrderCardHTML(order) {
+    // Uses the state cache for customer and table info
+    const customerName = state.customersCache[order.customer_id] || 'N/A';
+    const tableNumber = state.tablesCache[order.table_id] || 'N/A';
+
+    return `
+        <div id="order-card-${order.id}" class="bg-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500 fade-in">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="font-bold">Order #${order.id.slice(0, 6)}</p>
+                    <p class="text-sm text-muted-foreground">
+                        For ${customerName} at Table #${tableNumber}
+                    </p>
+                </div>
+                <button data-id="${order.id}" class="acknowledge-order-btn bg-blue-500 text-white px-3 py-1 text-xs font-bold rounded-full">Acknowledge</button>
+            </div>
+             <p class="text-xs text-muted-foreground mt-2">Received at ${new Date(order.created_at).toLocaleTimeString()}</p>
+        </div>
+    `;
+}
+
+async function loadLiveOrders() {
+    const { data, error } = await supabase
+        .from('orders')
+        .select('*') // We only need IDs, the rest comes from cache
+        .eq('status', 'received')
+        .order('created_at', { ascending: true });
+
+    if (state.currentPage !== 'dashboard' || error) return;
+    
+    const container = $('#live-orders-container');
+    if (!container) return;
+    
+    if (data.length === 0) {
+        container.innerHTML = `<p class="text-center text-muted-foreground p-4">No new orders waiting.</p>`;
+    } else {
+        container.innerHTML = data.map(createOrderCardHTML).join('');
+    }
+}
+
+async function loadDashboardStats() {
     // Fetch and render data
     const { data: allOrders, error: ordersError } = await supabase.from('orders').select('total_amount, created_at');
-    const { count: customersCount, error: customersError } = await supabase.from('customers').select('*', { count: 'exact', head: true });
+    // Customers count is already cached, no need to fetch again unless necessary
+    const customersCount = Object.keys(state.customersCache).length;
     
-    if (state.currentPage !== 'dashboard') return;
-
     // Filter logic
     const now = new Date();
     const startDate = new Date();
     switch (state.dashboardDateRange) {
-        case '1d':
-            startDate.setDate(now.getDate() - 1);
-            break;
-        case '7d':
-            startDate.setDate(now.getDate() - 7);
-            break;
-        case '30d':
-            startDate.setDate(now.getDate() - 30);
-            break;
+        case '1d': startDate.setDate(now.getDate() - 1); break;
+        case '7d': startDate.setDate(now.getDate() - 7); break;
+        case '30d': startDate.setDate(now.getDate() - 30); break;
     }
 
     const orders = allOrders.filter(order => new Date(order.created_at) >= startDate);
 
     // Render cards
-    $('#card-orders').innerHTML = createStatCard('Total Orders', orders?.length || 0, '📝');
+    if ($('#card-orders')) $('#card-orders').innerHTML = createStatCard('Total Orders', orders?.length || 0, '📝');
     const totalRevenue = orders?.reduce((acc, order) => acc + order.total_amount, 0) || 0;
-    $('#card-revenue').innerHTML = createStatCard('Total Revenue', `₹${totalRevenue.toFixed(2)}`, '💰');
-    $('#card-customers').innerHTML = createStatCard('Total Customers', customersCount || 0, '👥');
-    
-    // Render chart
-    const chartElement = $('#visits-chart');
-    if (chartElement) {
-        renderVisitsChart(orders);
-    }
+    if ($('#card-revenue')) $('#card-revenue').innerHTML = createStatCard('Total Revenue', `₹${totalRevenue.toFixed(2)}`, '💰');
+    if ($('#card-customers')) $('#card-customers').innerHTML = createStatCard('Total Customers', customersCount || 0, '👥');
 }
 
 function createStatCard(title, value, icon) {
@@ -330,42 +397,6 @@ function createStatCard(title, value, icon) {
             <p class="text-3xl font-bold">${value}</p>
             <span class="text-3xl">${icon}</span>
         </div>`;
-}
-
-function renderVisitsChart(orders) {
-    const ctx = document.getElementById('visits-chart')?.getContext('2d');
-    if (!ctx) return;
-    if (state.chartInstance) {
-        state.chartInstance.destroy();
-    }
-    
-    const visitsByDay = orders.reduce((acc, order) => {
-        const day = new Date(order.created_at).toLocaleDateString();
-        acc[day] = (acc[day] || 0) + 1;
-        return acc;
-    }, {});
-    
-    const labels = Object.keys(visitsByDay);
-    const data = Object.values(visitsByDay);
-
-    state.chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Orders per Day',
-                data: data,
-                borderColor: 'var(--primary)',
-                backgroundColor: 'rgba(17, 24, 39, 0.1)',
-                fill: true,
-                tension: 0.3,
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: { y: { beginAtZero: true } }
-        }
-    });
 }
 
 // --- MENU MANAGEMENT ---
@@ -748,12 +779,32 @@ function applyTheme(theme) {
     localStorage.setItem('theme', theme);
 }
 
+async function cacheData() {
+    const { data: customers, error: custError } = await supabase.from('customers').select('id, name');
+    if (customers) {
+        state.customersCache = customers.reduce((acc, c) => {
+            acc[c.id] = c.name;
+            return acc;
+        }, {});
+    }
+
+    const { data: tables, error: tableError } = await supabase.from('tables').select('id, table_number');
+    if (tables) {
+        state.tablesCache = tables.reduce((acc, t) => {
+            acc[t.id] = t.table_number;
+            return acc;
+        }, {});
+    }
+}
+
 // --- INITIALIZATION ---
-function initializeApp() {
+async function initializeApp() {
     $('#login-screen').classList.add('hidden');
     $('#app-container').classList.remove('hidden');
     
     $('#user-email').textContent = state.user.email;
+
+    await cacheData(); // Pre-load customer and table data
 
     applyTheme(localStorage.getItem('theme') || 'light');
     
@@ -785,12 +836,19 @@ function initializeApp() {
                 showToast("New Order! (Audio not enabled)");
             }
 
-            // Refresh dashboard or orders page if they are active
+            // If on dashboard, add the new order card instantly using cached data
             if (state.currentPage === 'dashboard') {
-                PAGES.dashboard.render($('#page-content'));
-            } else if (state.currentPage === 'orders') {
+                const newOrder = payload.new;
+                const container = $('#live-orders-container');
+                const placeholder = container.querySelector('p');
+                if (placeholder) placeholder.remove(); // Remove "No new orders" message
+                container.insertAdjacentHTML('beforeend', createOrderCardHTML(newOrder));
+            }
+            // If on the main orders page, just re-render the whole list
+             if (state.currentPage === 'orders') {
                 PAGES.orders.render($('#page-content'));
             }
+
         })
         .subscribe();
 
@@ -804,6 +862,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const email = $('#email').value;
         const password = $('#password').value;
         const errorEl = $('#login-error');
+        const button = e.target.querySelector('button');
+        button.disabled = true;
+        button.textContent = "Signing In...";
 
         const { data, error } = await supabase.auth.signInWithPassword({
             email: email,
@@ -812,10 +873,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (error) {
             errorEl.textContent = error.message;
+            button.disabled = false;
+            button.textContent = "Sign In";
         } else {
             errorEl.textContent = '';
             state.user = data.user;
-            initializeApp();
+            await initializeApp();
         }
     });
 
@@ -823,7 +886,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
         state.user = session.user;
-        initializeApp();
+        await initializeApp();
+    } else {
+        $('#login-screen').classList.remove('hidden');
     }
 });
 </script>

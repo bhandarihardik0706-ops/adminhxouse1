@@ -8,10 +8,13 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator/qrcode.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --background-light: #f9fafb; --foreground-light: #111827; --card-light: #ffffff; --card-foreground-light: #111827; --popover-light: #ffffff; --popover-foreground-light: #111827; --primary-light: #111827; --primary-foreground-light: #f9fafb; --secondary-light: #f3f4f6; --secondary-foreground-light: #111827; --muted-light: #f3f4f6; --muted-foreground-light: #6b7280; --accent-light: #f3f4f6; --accent-foreground-light: #111827; --destructive-light: #ef4444; --destructive-foreground-light: #f9fafb; --border-light: #e5e7eb; --input-light: #e5e7eb; --ring-light: #111827;
-            --background-dark: #09090b; --foreground-dark: #fafafa; --card-dark: #09090b; --card-foreground-dark: #fafafa; --popover-dark: #09090b; --popover-foreground-dark: #fafafa; --primary-dark: #fafafa; --primary-foreground-dark: #09090b; --secondary-dark: #18181b; --secondary-foreground-dark: #fafafa; --muted-dark: #18181b; --muted-foreground-dark: #a1a1aa; --accent-dark: #18181b; --accent-foreground-dark: #fafafa; --destructive-dark: #7f1d1d; --destructive-foreground-dark: #fafafa; --border-dark: #27272a; --input-dark: #27272a; --ring-dark: #fafafa;
+            --background-light: #f7f8fa; --foreground-light: #1a1a1a; --card-light: #ffffff; --card-foreground-light: #1a1a1a; --popover-light: #ffffff; --popover-foreground-light: #1a1a1a; --primary-light: #1a1a1a; --primary-foreground-light: #ffffff; --secondary-light: #f1f2f4; --secondary-foreground-light: #1a1a1a; --muted-light: #e6e8eb; --muted-foreground-light: #6b7280; --accent-light: #f1f2f4; --accent-foreground-light: #1a1a1a; --destructive-light: #ef4444; --destructive-foreground-light: #f9fafb; --border-light: #e0e2e7; --input-light: #e0e2e7; --ring-light: #1a1a1a;
+            --background-dark: #121212; --foreground-dark: #fafafa; --card-dark: #1c1c1c; --card-foreground-dark: #fafafa; --popover-dark: #1c1c1c; --popover-foreground-dark: #fafafa; --primary-dark: #fafafa; --primary-foreground-dark: #121212; --secondary-dark: #2a2a2a; --secondary-foreground-dark: #fafafa; --muted-dark: #2a2a2a; --muted-foreground-dark: #a1a1aa; --accent-dark: #2a2a2a; --accent-foreground-dark: #fafafa; --destructive-dark: #b91c1c; --destructive-foreground-dark: #fafafa; --border-dark: #3a3a3a; --input-dark: #3a3a3a; --ring-dark: #fafafa;
         }
         .light {
             --background: var(--background-light); --foreground: var(--foreground-light); --card: var(--card-light); --card-foreground: var(--card-foreground-light); --popover: var(--popover-light); --popover-foreground: var(--popover-foreground-light); --primary: var(--primary-light); --primary-foreground: var(--primary-foreground-light); --secondary: var(--secondary-light); --secondary-foreground: var(--secondary-foreground-light); --muted: var(--muted-light); --muted-foreground: var(--muted-foreground-light); --accent: var(--accent-light); --accent-foreground: var(--accent-foreground-light); --destructive: var(--destructive-light); --destructive-foreground: var(--destructive-foreground-light); --border: var(--border-light); --input: var(--input-light); --ring: var(--ring-light);
@@ -19,7 +22,7 @@
         .dark {
             --background: var(--background-dark); --foreground: var(--foreground-dark); --card: var(--card-dark); --card-foreground: var(--card-foreground-dark); --popover: var(--popover-dark); --popover-foreground: var(--popover-foreground-dark); --primary: var(--primary-dark); --primary-foreground: var(--primary-foreground-dark); --secondary: var(--secondary-dark); --secondary-foreground: var(--secondary-foreground-dark); --muted: var(--muted-dark); --muted-foreground: var(--muted-foreground-dark); --accent: var(--accent-dark); --accent-foreground: var(--accent-foreground-dark); --destructive: var(--destructive-dark); --destructive-foreground: var(--destructive-foreground-dark); --border: var(--border-dark); --input: var(--input-dark); --ring: var(--ring-dark);
         }
-        body { background-color: var(--background); color: var(--foreground); }
+        body { background-color: var(--background); color: var(--foreground); font-family: 'Inter', sans-serif; }
         .bg-card { background-color: var(--card); }
         .text-card-foreground { color: var(--card-foreground); }
         .border-border { border-color: var(--border); }
@@ -33,56 +36,58 @@
         .ring-ring { box-shadow: 0 0 0 2px var(--ring); }
         .fade-in { animation: fadeIn 0.5s ease-in-out; }
         .fade-out { animation: fadeOut 0.5s ease-in-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); height: 0; padding: 0; margin: 0; border: 0; } }
         
-        /* Custom scrollbar for webkit browsers */
         ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: var(--secondary); }
-        ::-webkit-scrollbar-thumb { background: var(--muted-foreground); border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--muted-foreground); border-radius: 4px; border: 2px solid var(--background); }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
     </style>
 </head>
 <body class="antialiased">
     <!-- Login Screen -->
     <div id="login-screen" class="fixed inset-0 bg-secondary flex items-center justify-center z-[100]">
-        <div class="w-full max-w-sm bg-card p-8 rounded-lg shadow-md">
+        <div class="w-full max-w-sm bg-card p-8 rounded-xl shadow-lg border border-border">
+            <div class="flex justify-center mb-4">
+                <img src="https://ttdnlatylcqrevzlyrru.supabase.co/storage/v1/object/public/assets/Untitled%20design_20251008_093211_0000.png" alt="HXOUSE Logo" class="h-16 w-16 rounded-full">
+            </div>
             <h2 class="text-2xl font-bold text-center text-card-foreground mb-2">HXOUSE Admin</h2>
-            <p class="text-center text-muted-foreground mb-6">Please sign in to continue</p>
+            <p class="text-center text-muted-foreground mb-6">Welcome back. Please sign in.</p>
             <form id="login-form">
                 <div class="space-y-4">
                     <div>
-                        <label for="email" class="text-sm font-medium">Email</label>
-                        <input type="email" id="email" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border" required>
+                        <label for="email" class="text-sm font-medium text-muted-foreground">Email</label>
+                        <input type="email" id="email" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border focus:ring-2 focus:ring-ring" required>
                     </div>
                     <div>
-                        <label for="password" class="text-sm font-medium">Password</label>
-                        <input type="password" id="password" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border" required>
+                        <label for="password" class="text-sm font-medium text-muted-foreground">Password</label>
+                        <input type="password" id="password" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border focus:ring-2 focus:ring-ring" required>
                     </div>
                 </div>
                 <p id="login-error" class="text-destructive text-sm text-center mt-4 h-5"></p>
-                <button type="submit" class="w-full bg-primary text-primary-foreground font-semibold py-2 px-4 rounded-lg mt-4">Sign In</button>
+                <button type="submit" class="w-full bg-primary text-primary-foreground font-semibold py-2.5 px-4 rounded-lg mt-4 transition-transform transform hover:scale-105">Sign In</button>
             </form>
         </div>
     </div>
 
     <!-- Main App Container -->
     <div id="app-container" class="hidden">
-        <div class="flex h-screen bg-secondary">
+        <div class="flex h-screen bg-background">
             <!-- Sidebar -->
             <aside class="w-64 flex-shrink-0 bg-card border-r border-border flex flex-col">
-                <div class="h-16 flex items-center justify-center border-b border-border">
-                    <h1 class="text-2xl font-bold text-card-foreground">H<span class="text-red-500">X</span>OUSE</h1>
+                <div class="h-20 flex items-center justify-center p-4 border-b border-border">
+                    <img src="https://ttdnlatylcqrevzlyrru.supabase.co/storage/v1/object/public/assets/Untitled%20design_20251008_093211_0000.png" alt="HXOUSE Logo" class="h-12 w-12 rounded-full">
                 </div>
-                <nav id="sidebar-nav" class="flex-grow p-4 space-y-2">
+                <nav id="sidebar-nav" class="flex-grow p-4 space-y-1">
                     <!-- Nav items will be injected by JS -->
                 </nav>
                 <div class="p-4 border-t border-border space-y-2">
-                    <button id="theme-toggle" class="w-full flex items-center justify-center p-2 rounded-lg bg-secondary text-secondary-foreground">
+                    <button id="theme-toggle" class="w-full flex items-center justify-center p-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted transition-colors">
                         <svg id="theme-icon-light" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                         <svg id="theme-icon-dark" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
                     </button>
-                    <button id="logout-btn" class="w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:bg-secondary">
+                    <button id="logout-btn" class="w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:bg-secondary hover:text-secondary-foreground transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                         Logout
                     </button>
@@ -91,9 +96,12 @@
 
             <!-- Main Content -->
             <main class="flex-1 flex flex-col overflow-hidden">
-                <header class="h-16 bg-card border-b border-border flex items-center justify-between px-6">
+                <header class="h-16 bg-card border-b border-border flex items-center justify-between px-6 flex-shrink-0">
                     <h2 id="page-title" class="text-xl font-semibold text-card-foreground">Dashboard</h2>
-                    <div id="user-email" class="text-sm text-muted-foreground"></div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                        <div id="user-email" class="text-sm text-muted-foreground"></div>
+                    </div>
                 </header>
                 <div id="page-content" class="flex-1 overflow-y-auto p-6 space-y-6">
                     <!-- Content will be injected by JS -->
@@ -151,24 +159,26 @@ const state = {
 };
 
 const ICONS = {
-    dashboard: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>`,
-    menu: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>`,
-    orders: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 9h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>`,
-    staff_calls: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>`,
-    customers: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>`,
-    analytics: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" /></svg>`,
-    qr: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="currentColor"><path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM13 21h8v-8h-8v8zm2-6h4v4h-4v-4z"/></svg>`,
-    settings: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>`,
+    dashboard: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>`,
+    orders: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`,
+    menu: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M2 6h20M2 18h20"/></svg>`,
+    customers: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    staff_calls: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+    analytics: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8a5 5 0 0 1-6.4 0l-4.3 4.3a5 5 0 0 1-6.4 0"/><path d="M12.3 19.3a5 5 0 0 1-6.4 0"/><path d="M22 3a5 5 0 0 1-6.4 0"/></svg>`,
+    feedback: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+    qr_codes: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`,
+    settings: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
 };
 
 const PAGES = {
     dashboard: { title: "Dashboard", icon: ICONS.dashboard, render: renderDashboard },
-    orders: { title: "Order Tracking", icon: ICONS.orders, render: renderOrders },
-    menu: { title: "Menu Management", icon: ICONS.menu, render: renderMenu },
-    staff_calls: { title: "Staff Calls", icon: ICONS.staff_calls, render: renderStaffCalls },
+    orders: { title: "Orders", icon: ICONS.orders, render: renderOrders },
+    menu: { title: "Menu", icon: ICONS.menu, render: renderMenu },
     customers: { title: "Customers", icon: ICONS.customers, render: renderCustomers },
+    staff_calls: { title: "Staff Calls", icon: ICONS.staff_calls, render: renderStaffCalls },
     analytics: { title: "Analytics", icon: ICONS.analytics, render: renderAnalytics },
-    qr: { title: "Generate QR", icon: ICONS.qr, render: renderQrGenerator },
+    feedback: { title: "Feedback", icon: ICONS.feedback, render: renderFeedback },
+    qr_codes: { title: "QR Codes", icon: ICONS.qr_codes, render: renderQrCodes },
     settings: { title: "Settings", icon: ICONS.settings, render: renderSettings },
 };
 
@@ -192,7 +202,7 @@ function render() {
         const page = PAGES[key];
         const isActive = state.currentPage === key;
         return `
-            <button onclick="navigateTo('${key}')" class="w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg ${isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}">
+            <button onclick="navigateTo('${key}')" class="w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-secondary-foreground'}">
                 ${page.icon}
                 ${page.title}
             </button>
@@ -280,13 +290,13 @@ function hideAlert() {
 // --- DASHBOARD ---
 async function renderDashboard(container) {
     const audioInitHTML = !state.audioInitialized
-        ? `<div id="audio-prompt" class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6" role="alert">
+        ? `<div id="audio-prompt" class="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-300 p-4 mb-6 rounded-r-lg" role="alert">
              <div class="flex">
                 <div class="py-1"><svg class="fill-current h-6 w-6 text-yellow-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zM9 11v4h2v-4H9zm0-4h2v2H9V7z"/></svg></div>
                 <div>
                   <p class="font-bold">Enable Sound Notifications</p>
                   <p class="text-sm">Click the button to enable sound for new orders and staff calls.</p>
-                  <button id="test-audio-btn" class="mt-2 bg-yellow-500 text-white font-bold py-1 px-2 rounded text-xs">Enable Audio</button>
+                  <button id="test-audio-btn" class="mt-2 bg-yellow-500 text-white font-bold py-1 px-2 rounded text-xs hover:bg-yellow-600">Enable Audio</button>
                 </div>
             </div>
            </div>`
@@ -296,11 +306,11 @@ async function renderDashboard(container) {
         ${audioInitHTML}
         <div id="live-updates" class="space-y-6">
             <div>
-                <h3 class="text-lg font-semibold mb-4">New Live Orders</h3>
+                <h3 class="text-lg font-semibold mb-4 text-card-foreground">New Live Orders</h3>
                 <div id="live-orders-container" class="space-y-3"></div>
             </div>
             <div>
-                <h3 class="text-lg font-semibold mb-4">Pending Staff Calls</h3>
+                <h3 class="text-lg font-semibold mb-4 text-card-foreground">Pending Staff Calls</h3>
                 <div id="live-staff-calls-container" class="space-y-3"></div>
             </div>
         </div>
@@ -334,16 +344,16 @@ async function loadLiveOrders() {
     }
 
     if (data.length === 0) {
-        container.innerHTML = `<p class="text-center text-muted-foreground p-4">No new orders waiting.</p>`;
+        container.innerHTML = `<div class="text-center text-muted-foreground p-4 bg-card rounded-lg border border-border"><p>No new orders waiting.</p></div>`;
     } else {
         container.innerHTML = data.map(order => `
             <div id="order-card-${order.id}" class="bg-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500 fade-in">
                 <div class="flex justify-between items-start">
                     <div>
-                        <p class="font-bold">Order #${order.id.slice(0, 6)}</p>
+                        <p class="font-bold text-card-foreground">Order #${order.id.slice(0, 6)}</p>
                         <p class="text-sm text-muted-foreground">For ${order.customers?.name || 'N/A'} at Table #${order.tables?.table_number || 'N/A'}</p>
                     </div>
-                    <button onclick="acknowledgeOrder('${order.id}')" class="acknowledge-order-btn bg-blue-500 text-white px-3 py-1 text-xs font-bold rounded-full">Acknowledge</button>
+                    <button onclick="acknowledgeOrder('${order.id}')" class="acknowledge-order-btn bg-blue-500 text-white px-3 py-1 text-xs font-bold rounded-full hover:bg-blue-600 transition-colors">Acknowledge</button>
                 </div>
                 <p class="text-xs text-muted-foreground mt-2">Received at ${new Date(order.created_at).toLocaleTimeString()}</p>
             </div>
@@ -380,16 +390,16 @@ async function loadLiveStaffCalls() {
     }
 
     if (data.length === 0) {
-        container.innerHTML = `<p class="text-center text-muted-foreground p-4">No pending staff calls.</p>`;
+        container.innerHTML = `<div class="text-center text-muted-foreground p-4 bg-card rounded-lg border border-border"><p>No pending staff calls.</p></div>`;
     } else {
         container.innerHTML = data.map(call => `
             <div id="call-card-${call.id}" class="bg-card p-4 rounded-lg shadow-sm border-l-4 border-orange-500 fade-in">
                 <div class="flex justify-between items-start">
                     <div>
-                        <p class="font-bold">Call from Table #${call.tables?.table_number || 'N/A'}</p>
+                        <p class="font-bold text-card-foreground">Call from Table #${call.tables?.table_number || 'N/A'}</p>
                         <p class="text-sm text-muted-foreground">By ${call.customers?.name || 'N/A'}</p>
                     </div>
-                    <button onclick="resolveCall('${call.id}')" class="bg-orange-500 text-white px-3 py-1 text-xs font-bold rounded-full">Resolve</button>
+                    <button onclick="resolveCall('${call.id}')" class="bg-orange-500 text-white px-3 py-1 text-xs font-bold rounded-full hover:bg-orange-600 transition-colors">Resolve</button>
                 </div>
                  <p class="text-xs text-muted-foreground mt-2">Received at ${new Date(call.created_at).toLocaleTimeString()}</p>
             </div>
@@ -416,8 +426,8 @@ async function renderMenu(container) {
             <h3 class="text-lg font-semibold">Menu Items</h3>
             <button id="add-item-btn" class="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">Add New Item</button>
         </div>
-        <div class="bg-card p-4 rounded-lg shadow-sm">
-            <div class="grid grid-cols-6 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b">
+        <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
+            <div class="grid grid-cols-6 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
                 <div class="col-span-2">Name</div>
                 <div>Category</div>
                 <div>Price</div>
@@ -483,7 +493,7 @@ async function renderMenu(container) {
                     <div class="col-span-2 font-medium">${item.name}</div>
                     <div>${item.category}</div>
                     <div>₹${item.price}</div>
-                    <div><span class="px-2 py-1 text-xs rounded-full ${item.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${item.is_available ? 'Yes' : 'No'}</span></div>
+                    <div><span class="px-2 py-1 text-xs rounded-full ${item.is_available ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300'}">${item.is_available ? 'Yes' : 'No'}</span></div>
                     <div class="space-x-2">
                         <button class="edit-item-btn text-blue-600 hover:underline" data-id="${item.id}">Edit</button>
                         <button class="delete-item-btn text-red-600 hover:underline" data-id="${item.id}">Delete</button>
@@ -534,7 +544,6 @@ async function renderMenu(container) {
         } else {
             showToast(`Item ${id ? 'updated' : 'added'}.`);
             closeModal();
-            await loadMenu();
         }
     });
 
@@ -554,7 +563,6 @@ async function renderMenu(container) {
                 }
                 else {
                     showToast('Item deleted.');
-                    await loadMenu();
                 }
             }
         }
@@ -564,8 +572,8 @@ async function renderMenu(container) {
 // --- ORDER TRACKING ---
 async function renderOrders(container) {
     container.innerHTML = `
-        <div class="bg-card p-4 rounded-lg shadow-sm">
-            <div class="grid grid-cols-6 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b">
+        <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
+            <div class="grid grid-cols-6 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
                 <div>Order ID</div>
                 <div>Customer</div>
                 <div>Table</div>
@@ -658,8 +666,8 @@ async function renderOrders(container) {
 // --- STAFF CALLS ---
 async function renderStaffCalls(container) {
     container.innerHTML = `
-        <div class="bg-card p-4 rounded-lg shadow-sm">
-            <div class="grid grid-cols-5 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b">
+        <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
+            <div class="grid grid-cols-5 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
                 <div>Time</div>
                 <div>Customer</div>
                 <div>Table</div>
@@ -693,7 +701,7 @@ async function renderStaffCalls(container) {
                     <div>${call.customers?.name || 'N/A'}</div>
                     <div>#${call.tables?.table_number || 'N/A'}</div>
                     <div>
-                        <span class="px-2 py-1 text-xs rounded-full ${call.status === 'pending' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'}">${call.status}</span>
+                        <span class="px-2 py-1 text-xs rounded-full ${call.status === 'pending' ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300' : 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300'}">${call.status}</span>
                     </div>
                     <div>
                         ${call.status === 'pending' ? `<button onclick="resolveCall('${call.id}')" class="text-blue-600 hover:underline">Resolve</button>` : ''}
@@ -709,8 +717,8 @@ async function renderStaffCalls(container) {
 // --- CUSTOMERS ---
 async function renderCustomers(container) {
     container.innerHTML = `
-        <div class="bg-card p-4 rounded-lg shadow-sm">
-            <div class="grid grid-cols-5 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b">
+        <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
+            <div class="grid grid-cols-5 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
                 <div class="col-span-2">Name</div>
                 <div>Joined</div>
                 <div>Phone</div>
@@ -760,7 +768,6 @@ async function renderCustomers(container) {
                     console.error("Customer Delete Error:", error);
                 } else {
                     showToast(`Customer ${name} deleted.`);
-                    await loadCustomers(); // Refresh the list
                 }
             }
         }
@@ -771,13 +778,13 @@ async function renderCustomers(container) {
 async function renderAnalytics(container) {
     container.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-card p-6 rounded-lg shadow-sm">
+            <div class="bg-card p-6 rounded-lg shadow-sm border border-border">
                 <h3 class="text-lg font-semibold mb-4">Top 5 Selling Items</h3>
                 <div id="top-items-chart-container">
                     <canvas id="topItemsChart"></canvas>
                 </div>
             </div>
-            <div class="bg-card p-6 rounded-lg shadow-sm">
+            <div class="bg-card p-6 rounded-lg shadow-sm border border-border">
                 <h3 class="text-lg font-semibold mb-4">Daily Revenue (Last 30 Days)</h3>
                 <div id="revenue-chart-container">
                      <canvas id="revenueChart"></canvas>
@@ -785,75 +792,88 @@ async function renderAnalytics(container) {
             </div>
         </div>
     `;
-
-    // Fetch data for Top Selling Items
-    const { data: orderItems, error: itemsError } = await supabase
-        .from('order_items')
-        .select('quantity, products(name)');
-        
-    if (itemsError) {
-        $('#top-items-chart-container').innerHTML = `<p class="text-destructive">Error loading item data.</p>`;
-    } else {
-        const itemCounts = orderItems.reduce((acc, item) => {
-            if (!item.products) return acc;
-            const name = item.products.name;
-            acc[name] = (acc[name] || 0) + item.quantity;
-            return acc;
-        }, {});
-        const sortedItems = Object.entries(itemCounts).sort(([,a],[,b]) => b-a).slice(0, 5);
-        new Chart($('#topItemsChart'), {
-            type: 'bar',
-            data: {
-                labels: sortedItems.map(item => item[0]),
-                datasets: [{
-                    label: 'Quantity Sold',
-                    data: sortedItems.map(item => item[1]),
-                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: { indexAxis: 'y', responsive: true }
-        });
-    }
-
-    // Fetch data for Daily Revenue
-    const { data: orders, error: ordersError } = await supabase
-        .from('orders')
-        .select('created_at, total_amount')
-        .gte('created_at', new Date(new Date().setDate(new Date().getDate() - 30)).toISOString());
     
-    if (ordersError) {
-         $('#revenue-chart-container').innerHTML = `<p class="text-destructive">Error loading revenue data.</p>`;
-    } else {
-        const revenueByDay = orders.reduce((acc, order) => {
-            const day = new Date(order.created_at).toISOString().split('T')[0];
-            acc[day] = (acc[day] || 0) + order.total_amount;
-            return acc;
-        }, {});
-        const sortedDays = Object.entries(revenueByDay).sort(([a],[b]) => new Date(a) - new Date(b));
-         new Chart($('#revenueChart'), {
-            type: 'line',
-            data: {
-                labels: sortedDays.map(day => new Date(day[0]).toLocaleDateString()),
-                datasets: [{
-                    label: 'Daily Revenue (₹)',
-                    data: sortedDays.map(day => day[1]),
-                    fill: false,
-                    borderColor: 'rgb(75, 192, 192)',
-                    tension: 0.1
-                }]
-            },
-             options: { responsive: true }
-        });
-    }
+    const renderCharts = async () => {
+        try {
+            // Fetch data for Top Selling Items
+            const { data: orderItems, error: itemsError } = await supabase
+                .from('order_items')
+                .select('quantity, products(name)');
+                
+            if (itemsError) {
+                $('#top-items-chart-container').innerHTML = `<p class="text-destructive">Error loading item data.</p>`;
+            } else {
+                const itemCounts = orderItems.reduce((acc, item) => {
+                    if (!item.products) return acc;
+                    const name = item.products.name;
+                    acc[name] = (acc[name] || 0) + item.quantity;
+                    return acc;
+                }, {});
+                const sortedItems = Object.entries(itemCounts).sort(([,a],[,b]) => b-a).slice(0, 5);
+                if ($('#topItemsChart')) {
+                    new Chart($('#topItemsChart'), {
+                        type: 'bar',
+                        data: {
+                            labels: sortedItems.map(item => item[0]),
+                            datasets: [{
+                                label: 'Quantity Sold',
+                                data: sortedItems.map(item => item[1]),
+                                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: { indexAxis: 'y', responsive: true }
+                    });
+                }
+            }
+
+            // Fetch data for Daily Revenue
+            const { data: orders, error: ordersError } = await supabase
+                .from('orders')
+                .select('created_at, total_amount')
+                .gte('created_at', new Date(new Date().setDate(new Date().getDate() - 30)).toISOString());
+            
+            if (ordersError) {
+                $('#revenue-chart-container').innerHTML = `<p class="text-destructive">Error loading revenue data.</p>`;
+            } else {
+                const revenueByDay = orders.reduce((acc, order) => {
+                    const day = new Date(order.created_at).toISOString().split('T')[0];
+                    acc[day] = (acc[day] || 0) + order.total_amount;
+                    return acc;
+                }, {});
+                const sortedDays = Object.entries(revenueByDay).sort(([a],[b]) => new Date(a) - new Date(b));
+                if ($('#revenueChart')) {
+                    new Chart($('#revenueChart'), {
+                        type: 'line',
+                        data: {
+                            labels: sortedDays.map(day => new Date(day[0]).toLocaleDateString()),
+                            datasets: [{
+                                label: 'Daily Revenue (₹)',
+                                data: sortedDays.map(day => day[1]),
+                                fill: false,
+                                borderColor: 'rgb(75, 192, 192)',
+                                tension: 0.1
+                            }]
+                        },
+                        options: { responsive: true }
+                    });
+                }
+            }
+        } catch (e) {
+            console.error("Chart rendering failed:", e);
+        }
+    };
+    
+    // Use a timeout to ensure the canvas elements are in the DOM before Chart.js tries to use them.
+    setTimeout(renderCharts, 0);
 }
 
 
 // --- QR CODE GENERATOR ---
-function renderQrGenerator(container) {
+function renderQrCodes(container) {
     container.innerHTML = `
-        <div class="max-w-md mx-auto bg-card p-8 rounded-lg shadow-sm">
+        <div class="max-w-md mx-auto bg-card p-8 rounded-lg shadow-sm border border-border">
             <h3 class="text-lg font-semibold text-center mb-4">Generate Table QR Code</h3>
             <div class="flex space-x-2">
                 <input type="number" id="table-number-input" placeholder="Enter table number" class="w-full p-2 bg-secondary rounded-md border border-border">
@@ -900,10 +920,132 @@ function renderQrGenerator(container) {
     });
 }
 
+// --- FEEDBACK ---
+async function renderFeedback(container) {
+    container.innerHTML = `
+        <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
+            <div class="grid grid-cols-6 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
+                <div class="col-span-2">Customer</div>
+                <div>Rating</div>
+                <div class="col-span-2">Comment</div>
+                <div>Actions</div>
+            </div>
+            <div id="feedback-table-body" class="divide-y divide-border"></div>
+        </div>
+    `;
+
+    const loadFeedback = async () => {
+        const { data, error } = await supabase
+            .from('feedback')
+            .select('*, customers(name)')
+            .order('created_at', { ascending: false });
+
+        const tableBody = $('#feedback-table-body');
+        if (!tableBody) return;
+
+        if (error) {
+            tableBody.innerHTML = `<p class="text-center text-destructive p-4">Error: ${error.message}</p>`;
+            console.error("Feedback Load Error:", error);
+            return;
+        }
+
+        const ratingToStars = (rating) => {
+            let stars = '';
+            for (let i = 0; i < 5; i++) {
+                stars += i < rating ? '★' : '☆';
+            }
+            return `<span class="text-yellow-500">${stars}</span>`;
+        };
+
+        tableBody.innerHTML = data.length === 0
+            ? `<p class="text-center text-muted-foreground p-4">No feedback has been submitted yet.</p>`
+            : data.map(item => `
+                <div class="grid grid-cols-6 gap-4 items-start px-4 py-3 text-sm">
+                    <div class="col-span-2 font-medium">${item.customers?.name || 'Anonymous'}</div>
+                    <div>${ratingToStars(item.rating)}</div>
+                    <div class="col-span-2 text-muted-foreground">${item.comment || 'No comment'}</div>
+                    <div>
+                        <button class="delete-feedback-btn text-red-600 hover:underline" data-id="${item.id}">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+    };
+
+    await loadFeedback();
+
+    container.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('delete-feedback-btn')) {
+            const id = e.target.dataset.id;
+            const confirmed = await showConfirmation('Delete Feedback?', 'Are you sure you want to delete this feedback entry?');
+            if (confirmed) {
+                const { error } = await supabase.from('feedback').delete().eq('id', id);
+                if (error) {
+                    showToast(`Error: ${error.message}`, true);
+                } else {
+                    showToast('Feedback deleted.');
+                }
+            }
+        }
+    });
+}
+
 // --- SETTINGS ---
 async function renderSettings(container) {
-    // Placeholder for settings page
-    container.innerHTML = `<div class="bg-card p-8 rounded-lg shadow-sm"><p>Settings page is under construction.</p></div>`;
+    container.innerHTML = `
+        <div class="max-w-2xl mx-auto bg-card p-8 rounded-lg shadow-sm border border-border">
+            <h3 class="text-lg font-semibold mb-6">Application Settings</h3>
+            <form id="settings-form" class="space-y-4">
+                <div id="settings-fields">
+                    <p class="text-muted-foreground">Loading settings...</p>
+                </div>
+                <div class="flex justify-end pt-4">
+                    <button type="submit" class="bg-primary text-primary-foreground px-6 py-2 rounded-lg font-medium">Save Settings</button>
+                </div>
+            </form>
+        </div>
+    `;
+
+    const loadSettings = async () => {
+        const { data, error } = await supabase.from('settings').select('*');
+        const fieldsContainer = $('#settings-fields');
+        if (!fieldsContainer) return;
+
+        if (error) {
+            console.error("Error loading settings:", error);
+            fieldsContainer.innerHTML = `<p class="text-destructive">Error loading settings: ${error.message}</p>`;
+            return;
+        }
+
+        fieldsContainer.innerHTML = data.map(setting => {
+            const formattedKey = setting.key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            return `
+                <div>
+                    <label for="setting-${setting.key}" class="text-sm font-medium text-card-foreground">${formattedKey}</label>
+                    <input type="text" id="setting-${setting.key}" name="${setting.key}" value="${setting.value}" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border">
+                </div>
+            `;
+        }).join('');
+    };
+    
+    await loadSettings();
+
+    $('#settings-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const updates = [];
+        for (let [key, value] of formData.entries()) {
+            updates.push({ key, value });
+        }
+
+        const { error } = await supabase.from('settings').upsert(updates);
+
+        if (error) {
+            showToast(`Error saving settings: ${error.message}`, true);
+            console.error('Settings save error:', error);
+        } else {
+            showToast('Settings saved successfully.');
+        }
+    });
 }
 
 
@@ -961,6 +1103,8 @@ async function initializeApp() {
             console.log('Realtime Order Event:', payload);
             if (state.currentPage === 'dashboard') loadLiveOrders();
             if (state.currentPage === 'orders') PAGES.orders.render($('#page-content'));
+            if (state.currentPage === 'analytics') PAGES.analytics.render($('#page-content'));
+
             if (payload.eventType === 'INSERT') {
                 const { data: fullOrder, error } = await supabase
                     .from('orders')
@@ -1013,9 +1157,16 @@ async function initializeApp() {
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
             if (state.currentPage === 'menu') PAGES.menu.render($('#page-content'));
+            if (state.currentPage === 'analytics') PAGES.analytics.render($('#page-content'));
         })
-         .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => {
             if (state.currentPage === 'customers') PAGES.customers.render($('#page-content'));
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'feedback' }, () => {
+            if (state.currentPage === 'feedback') PAGES.feedback.render($('#page-content'));
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+            if (state.currentPage === 'settings') PAGES.settings.render($('#page-content'));
         })
         .subscribe();
 

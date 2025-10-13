@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator/qrcode.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -35,23 +34,25 @@
         .text-destructive-foreground { color: var(--destructive-foreground); }
         .ring-ring { box-shadow: 0 0 0 2px var(--ring); }
         .fade-in { animation: fadeIn 0.5s ease-in-out; }
-        .fade-out { animation: fadeOut 0.5s ease-in-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); height: 0; padding: 0; margin: 0; border: 0; } }
         
-        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--muted-foreground); border-radius: 4px; border: 2px solid var(--background); }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* Styles for printable KOT and Bill */
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+        }
     </style>
 </head>
 <body class="antialiased">
     <!-- Login Screen -->
     <div id="login-screen" class="fixed inset-0 bg-secondary flex items-center justify-center z-[100]">
         <div class="w-full max-w-sm bg-card p-8 rounded-xl shadow-lg border border-border">
-            <div class="flex justify-center mb-4">
-                <img src="https://ttdnlatylcqrevzlyrru.supabase.co/storage/v1/object/public/assets/Untitled%20design_20251008_093211_0000.png" alt="HXOUSE Logo" class="h-16 w-16 rounded-full">
-            </div>
             <h2 class="text-2xl font-bold text-center text-card-foreground mb-2">HXOUSE Admin</h2>
             <p class="text-center text-muted-foreground mb-6">Welcome back. Please sign in.</p>
             <form id="login-form">
@@ -77,7 +78,7 @@
             <!-- Sidebar -->
             <aside class="w-64 flex-shrink-0 bg-card border-r border-border flex flex-col">
                 <div class="h-20 flex items-center justify-center p-4 border-b border-border">
-                    <img src="https://ttdnlatylcqrevzlyrru.supabase.co/storage/v1/object/public/assets/Untitled%20design_20251008_093211_0000.png" alt="HXOUSE Logo" class="h-12 w-12 rounded-full">
+                    <h1 class="text-xl font-bold">HXOUSE CO.</h1>
                 </div>
                 <nav id="sidebar-nav" class="flex-grow p-4 space-y-1">
                     <!-- Nav items will be injected by JS -->
@@ -114,13 +115,6 @@
     <div id="toast" class="hidden fixed bottom-5 right-5 bg-primary text-primary-foreground py-2 px-4 rounded-lg shadow-lg text-sm z-[200]">
         <p id="toast-message"></p>
     </div>
-
-    <!-- Universal Alert Modal -->
-    <div id="alert-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[101]">
-        <div id="alert-modal-content" class="bg-card p-8 rounded-lg shadow-2xl text-center w-full max-w-md transform transition-all">
-            <!-- Content injected by JS -->
-        </div>
-    </div>
     
     <!-- Universal Confirmation Modal -->
     <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[102]">
@@ -133,9 +127,9 @@
             </div>
         </div>
     </div>
-
-    <!-- Embedded Audio -->
-    <audio id="notification-sound" src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA" preload="none"></audio>
+    
+    <!-- Area for printing -->
+    <div id="printable-area" class="hidden"></div>
 
 
 <script>
@@ -151,24 +145,27 @@ const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const state = {
     currentPage: 'dashboard',
-    chartInstance: null,
-    audioInitialized: false,
-    dashboardDateRange: '30d',
     user: null,
-    confirmPromise: null, // For handling confirmation modal
+    confirmPromise: null,
+};
+
+const INVOICE_DETAILS = {
+    name: "HXOUSE COFFEE CO",
+    address: "SM TOWER BABA MARKET DCM VAISHALI NAGAR JAIPUR",
+    gstin: "", // Add GSTIN here if needed
+    phone: "", // Add Phone number here if needed
+    footer: "THANKYOU FOR VISITING"
 };
 
 const ICONS = {
     dashboard: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>`,
-    take_order: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h3m-3-10l-1.5-4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
-    orders: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`,
+    take_order: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`,
+    orders: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`,
     menu: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M2 6h20M2 18h20"/></svg>`,
     customers: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
     staff_calls: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
     analytics: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8a5 5 0 0 1-6.4 0l-4.3 4.3a5 5 0 0 1-6.4 0"/><path d="M12.3 19.3a5 5 0 0 1-6.4 0"/><path d="M22 3a5 5 0 0 1-6.4 0"/></svg>`,
     reports: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`,
-    feedback: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
-    qr_codes: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`,
     settings: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
 };
 
@@ -181,8 +178,6 @@ const PAGES = {
     staff_calls: { title: "Staff Calls", icon: ICONS.staff_calls, render: renderStaffCalls },
     analytics: { title: "Analytics", icon: ICONS.analytics, render: renderAnalytics },
     reports: { title: "Reports", icon: ICONS.reports, render: renderReports },
-    feedback: { title: "Feedback", icon: ICONS.feedback, render: renderFeedback },
-    qr_codes: { title: "QR Codes", icon: ICONS.qr_codes, render: renderQrCodes },
     settings: { title: "Settings", icon: ICONS.settings, render: renderSettings },
 };
 
@@ -218,7 +213,7 @@ function render() {
     pageTitle.textContent = PAGES[state.currentPage].title;
     
     pageContent.classList.remove('fade-in');
-    void pageContent.offsetWidth; // Trigger reflow
+    void pageContent.offsetWidth; 
     pageContent.classList.add('fade-in');
 
     PAGES[state.currentPage].render(pageContent);
@@ -242,545 +237,352 @@ async function showConfirmation(title, message) {
     });
 }
 
-// --- AUDIO & ALERT LOGIC ---
-function initializeAudio() {
-    if (state.audioInitialized) return;
-    const audio = $('#notification-sound');
-    audio.play().then(() => {
-        audio.pause();
-        state.audioInitialized = true;
-        showToast('Audio enabled!');
-        if (state.currentPage === 'dashboard') {
-            PAGES.dashboard.render($('#page-content'));
-        }
-    }).catch(error => {
-        console.warn("Audio playback failed to initialize:", error);
-    });
-}
-
-function playAlarm() {
-    if (!state.audioInitialized) return;
-    const audio = $('#notification-sound');
-    audio.loop = true;
-    audio.play().catch(e => console.error("Could not play alarm:", e));
-}
-
-function stopAlarm() {
-    const audio = $('#notification-sound');
-    audio.pause();
-    audio.currentTime = 0;
-    audio.loop = false;
-}
-
-function showAlert(content) {
-    playAlarm();
-    $('#alert-modal-content').innerHTML = content;
-    $('#alert-modal').classList.remove('hidden');
-}
-
-function hideAlert() {
-    stopAlarm();
-    $('#alert-modal').classList.add('hidden');
-}
-
-// --- UTILITY ---
-function printBill(order, businessDetails) {
-    const printWindow = window.open('', '', 'height=800,width=600');
-    printWindow.document.write(`
-        <html><head><title>Invoice</title>
-        <style>
-            body { font-family: 'Courier New', monospace; font-size: 10pt; margin: 0; padding: 10px; }
-            .receipt { width: 300px; margin: auto; }
-            .header { text-align: center; }
-            .header h1 { font-size: 14pt; margin: 0; }
-            .header p { margin: 2px 0; }
-            hr.dashed { border-top: 1px dashed black; }
-            .item-list table { width: 100%; border-collapse: collapse; }
-            .item-list th, .item-list td { padding: 4px 0; }
-            .item-list .qty { text-align: center; }
-            .item-list .price { text-align: right; }
-            .totals table { width: 100%; }
-            .totals td { padding: 2px 0; }
-            .totals .label { text-align: left; }
-            .totals .value { text-align: right; }
-            .footer { text-align: center; margin-top: 10px; }
-        </style>
-        </head><body>
-            <div class="receipt">
-                <div class="header">
-                    <h1>${businessDetails.name || 'HXOUSE'}</h1>
-                    <p>${businessDetails.address || '123 Flavor Town, Jaipur'}</p>
-                    <p>GSTIN: ${businessDetails.gstin || 'ABCDE12345'}</p>
-                </div>
-                <hr class="dashed">
-                <p>Order: ${order.id.slice(0, 8)}</p>
-                <p>Table: ${order.tables?.table_number || 'N/A'}</p>
-                <p>Date: ${new Date(order.created_at).toLocaleString()}</p>
-                <hr class="dashed">
-                <div class="item-list">
-                    <table>
-                        <thead><tr><th>Item</th><th class="qty">Qty</th><th class="price">Total</th></tr></thead>
-                        <tbody>
-                        ${order.order_items.map(item => `
-                            <tr>
-                                <td>${item.products?.name || 'Unknown'}</td>
-                                <td class="qty">${item.quantity}</td>
-                                <td class="price">${(item.quantity * item.price_at_time_of_order).toFixed(2)}</td>
-                            </tr>
-                        `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                <hr class="dashed">
-                <div class="totals">
-                    <table>
-                        <tr><td class="label">Subtotal</td><td class="value">${(order.total_amount / 1.05).toFixed(2)}</td></tr>
-                        <tr><td class="label">GST (5%)</td><td class="value">${(order.total_amount - (order.total_amount / 1.05)).toFixed(2)}</td></tr>
-                        <tr><td class="label"><strong>Grand Total</strong></td><td class="value"><strong>${order.total_amount.toFixed(2)}</strong></td></tr>
-                    </table>
-                </div>
-                <hr class="dashed">
-                <div class="footer">
-                    <p>Thank you for your visit!</p>
-                </div>
-            </div>
-        </body></html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
-}
-
-function downloadCSV(csvContent, fileName) {
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    if (link.download !== undefined) {
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", fileName);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-}
-
-
 // =================================================================================
 //  SECTION 3: PAGE RENDERERS
 // =================================================================================
 
-// --- DASHBOARD ---
 async function renderDashboard(container) {
-    const audioInitHTML = !state.audioInitialized
-        ? `<div id="audio-prompt" class="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-300 p-4 mb-6 rounded-r-lg" role="alert">
-             <div class="flex">
-                <div class="py-1"><svg class="fill-current h-6 w-6 text-yellow-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zM9 11v4h2v-4H9zm0-4h2v2H9V7z"/></svg></div>
-                <div>
-                  <p class="font-bold">Enable Sound Notifications</p>
-                  <p class="text-sm">Click the button to enable sound for new orders and staff calls.</p>
-                  <button id="test-audio-btn" class="mt-2 bg-yellow-500 text-white font-bold py-1 px-2 rounded text-xs hover:bg-yellow-600">Enable Audio</button>
-                </div>
-            </div>
-           </div>`
-        : '';
-        
     container.innerHTML = `
-        ${audioInitHTML}
-        <!-- Key Stats -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            <div class="bg-card p-5 rounded-lg shadow-sm border border-border">
-                <h4 class="text-sm font-medium text-muted-foreground mb-1">Today's Revenue</h4>
-                <p id="stat-revenue" class="text-3xl font-bold text-card-foreground">₹0.00</p>
-            </div>
-            <div class="bg-card p-5 rounded-lg shadow-sm border border-border">
-                <h4 class="text-sm font-medium text-muted-foreground mb-1">Today's Orders</h4>
-                <p id="stat-orders" class="text-3xl font-bold text-card-foreground">0</p>
-            </div>
-            <div class="bg-card p-5 rounded-lg shadow-sm border border-border">
-                <h4 class="text-sm font-medium text-muted-foreground mb-1">Pending Orders</h4>
-                <p id="stat-pending-orders" class="text-3xl font-bold text-blue-500">0</p>
-            </div>
-            <div class="bg-card p-5 rounded-lg shadow-sm border border-border">
-                <h4 class="text-sm font-medium text-muted-foreground mb-1">Pending Staff Calls</h4>
-                <p id="stat-pending-calls" class="text-3xl font-bold text-orange-500">0</p>
-            </div>
+            <div class="bg-card p-5 rounded-lg border border-border shadow-sm"><h4 class="text-sm font-medium text-muted-foreground">Today's Revenue</h4><p id="db-revenue" class="text-2xl font-bold">₹0.00</p></div>
+            <div class="bg-card p-5 rounded-lg border border-border shadow-sm"><h4 class="text-sm font-medium text-muted-foreground">Today's Orders</h4><p id="db-orders" class="text-2xl font-bold">0</p></div>
+            <div class="bg-card p-5 rounded-lg border border-border shadow-sm"><h4 class="text-sm font-medium text-muted-foreground">Pending Orders</h4><p id="db-pending-orders" class="text-2xl font-bold">0</p></div>
+            <div class="bg-card p-5 rounded-lg border border-border shadow-sm"><h4 class="text-sm font-medium text-muted-foreground">Pending Calls</h4><p id="db-pending-calls" class="text-2xl font-bold">0</p></div>
         </div>
-
-        <div id="live-updates" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-                <h3 class="text-lg font-semibold mb-4 text-card-foreground">New Live Orders</h3>
-                <div id="live-orders-container" class="space-y-3"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-card p-5 rounded-lg border border-border shadow-sm">
+                <h3 class="font-semibold mb-4">Live Orders</h3>
+                <div id="live-orders-container" class="space-y-3 max-h-96 overflow-y-auto"></div>
             </div>
-            <div>
-                <h3 class="text-lg font-semibold mb-4 text-card-foreground">Pending Staff Calls</h3>
-                <div id="live-staff-calls-container" class="space-y-3"></div>
+            <div class="bg-card p-5 rounded-lg border border-border shadow-sm">
+                <h3 class="font-semibold mb-4">Pending Staff Calls</h3>
+                <div id="live-staff-calls-container" class="space-y-3 max-h-96 overflow-y-auto"></div>
             </div>
         </div>
     `;
-    
-    if ($('#test-audio-btn')) {
-        $('#test-audio-btn').addEventListener('click', () => {
-            initializeAudio();
-        });
-    }
 
-    // Load all data
-    await loadDashboardStats();
-    await loadLiveOrders();
-    await loadLiveStaffCalls();
-}
-
-async function loadDashboardStats() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayISO = today.toISOString();
 
-    const { data: orders, error: ordersError } = await supabase.from('orders').select('total_amount').gte('created_at', todayISO);
-    const { count: pendingOrdersCount, error: pendingOrdersError } = await supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'received');
-    const { count: pendingCallsCount, error: pendingCallsError } = await supabase.from('staff_calls').select('id', { count: 'exact', head: true }).eq('status', 'pending');
-
+    const { data: orders, error: ordersError } = await supabase.from('orders').select('total_amount, status').gte('created_at', today.toISOString());
+    const { count, error: callsError } = await supabase.from('staff_calls').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+    
     if (!ordersError) {
         const totalRevenue = orders.reduce((sum, order) => sum + order.total_amount, 0);
-        $('#stat-revenue').textContent = `₹${totalRevenue.toFixed(2)}`;
-        $('#stat-orders').textContent = orders.length;
+        const pendingOrders = orders.filter(o => o.status === 'received' || o.status === 'preparing').length;
+        $('#db-revenue').textContent = `₹${totalRevenue.toFixed(2)}`;
+        $('#db-orders').textContent = orders.length;
+        $('#db-pending-orders').textContent = pendingOrders;
     }
-    if (!pendingOrdersError) {
-        $('#stat-pending-orders').textContent = pendingOrdersCount;
+    if (!callsError) {
+        $('#db-pending-calls').textContent = count;
     }
-    if (!pendingCallsError) {
-         $('#stat-pending-calls').textContent = pendingCallsCount;
-    }
+    
+    loadLiveOrders();
+    loadLiveStaffCalls();
 }
 
-
 async function loadLiveOrders() {
-    const { data, error } = await supabase
-        .from('orders')
-        .select('*, customers(name), tables(table_number)')
-        .eq('status', 'received')
-        .order('created_at', { ascending: true });
+    const { data, error } = await supabase.from('orders').select('*, tables(table_number)').in('status', ['received', 'preparing']).order('created_at', { ascending: true });
     
     const container = $('#live-orders-container');
-    if (!container) return; // In case user navigated away
+    if (!container) return;
     
     if (error) {
-        container.innerHTML = `<p class="text-center text-destructive p-4">Error: ${error.message}</p>`;
+        container.innerHTML = `<p class="text-destructive">Error: ${error.message}</p>`;
         return;
     }
 
     if (data.length === 0) {
-        container.innerHTML = `<div class="text-center text-muted-foreground p-4 bg-card rounded-lg border border-border"><p>No new orders waiting.</p></div>`;
+        container.innerHTML = `<div class="text-center text-muted-foreground p-4"><p>No new orders waiting.</p></div>`;
     } else {
         container.innerHTML = data.map(order => `
-            <div id="order-card-${order.id}" class="bg-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500 fade-in">
-                <div class="flex justify-between items-start">
+            <div class="bg-secondary p-3 rounded-lg">
+                <div class="flex justify-between items-center">
                     <div>
-                        <p class="font-bold text-card-foreground">Order #${order.id.slice(0, 6)}</p>
-                        <p class="text-sm text-muted-foreground">For ${order.customers?.name || 'N/A'} at Table #${order.tables?.table_number || 'N/A'}</p>
+                        <p class="font-semibold">Order #${order.id.slice(0, 6)} <span class="text-xs font-normal text-muted-foreground ml-2">Table #${order.tables?.table_number || 'N/A'}</span></p>
+                        <p class="text-xs text-muted-foreground">${new Date(order.created_at).toLocaleTimeString()}</p>
                     </div>
-                    <button onclick="acknowledgeOrder('${order.id}')" class="acknowledge-order-btn bg-blue-500 text-white px-3 py-1 text-xs font-bold rounded-full hover:bg-blue-600 transition-colors">Acknowledge</button>
+                    <span class="px-2 py-1 text-xs rounded-full ${order.status === 'received' ? 'bg-blue-200 text-blue-800' : 'bg-yellow-200 text-yellow-800'}">${order.status}</span>
                 </div>
-                <p class="text-xs text-muted-foreground mt-2">Received at ${new Date(order.created_at).toLocaleTimeString()}</p>
             </div>
         `).join('');
     }
 }
-async function acknowledgeOrder(orderId) {
-    const { error } = await supabase.rpc('update_order_status', {
-        order_id_input: orderId,
-        new_status_input: 'preparing'
-    });
-    if (error) {
-        showToast(`Error: ${error.message}`, true);
-    } else {
-        showToast('Order acknowledged.');
-    }
-}
 
 async function loadLiveStaffCalls() {
-    const { data, error } = await supabase
-        .from('staff_calls')
-        .select('*, customers(name), tables(table_number)')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true });
+    const { data, error } = await supabase.from('staff_calls').select('*, tables(table_number)').eq('status', 'pending').order('created_at', { ascending: true });
     
     const container = $('#live-staff-calls-container');
     if (!container) return;
     
     if (error) {
-        container.innerHTML = `<p class="text-center text-destructive p-4">Error: ${error.message}</p>`;
+        container.innerHTML = `<p class="text-destructive">Error: ${error.message}</p>`;
         return;
     }
 
     if (data.length === 0) {
-        container.innerHTML = `<div class="text-center text-muted-foreground p-4 bg-card rounded-lg border border-border"><p>No pending staff calls.</p></div>`;
+        container.innerHTML = `<div class="text-center text-muted-foreground p-4"><p>No pending staff calls.</p></div>`;
     } else {
         container.innerHTML = data.map(call => `
-            <div id="call-card-${call.id}" class="bg-card p-4 rounded-lg shadow-sm border-l-4 border-orange-500 fade-in">
-                <div class="flex justify-between items-start">
+            <div class="bg-secondary p-3 rounded-lg">
+                <div class="flex justify-between items-center">
                     <div>
-                        <p class="font-bold text-card-foreground">Staff Call</p>
-                        <p class="text-sm text-muted-foreground">From Table #${call.tables?.table_number || 'N/A'}</p>
+                        <p class="font-semibold">Call from Table #${call.tables?.table_number || 'N/A'}</p>
+                        <p class="text-xs text-muted-foreground">${new Date(call.created_at).toLocaleTimeString()}</p>
                     </div>
-                    <button onclick="resolveCall('${call.id}')" class="bg-orange-500 text-white px-3 py-1 text-xs font-bold rounded-full hover:bg-orange-600 transition-colors">Resolve</button>
+                    <button onclick="resolveCall('${call.id}')" class="bg-primary text-primary-foreground px-3 py-1 text-xs font-bold rounded-md hover:opacity-80 transition-opacity">Resolve</button>
                 </div>
-                 <p class="text-xs text-muted-foreground mt-2">Received at ${new Date(call.created_at).toLocaleTimeString()}</p>
             </div>
         `).join('');
     }
 }
-async function resolveCall(callId) {
-    const { error } = await supabase
-        .from('staff_calls')
-        .update({ status: 'resolved' })
-        .eq('id', callId);
-    if (error) {
-        showToast(`Error: ${error.message}`, true);
-    } else {
-        showToast('Staff call resolved.');
-    }
-}
 
-// --- TAKE ORDER (POS) ---
 async function renderTakeOrder(container) {
-    container.className = 'p-0 m-0 h-full';
-    container.innerHTML = `<div id="pos-container" class="w-full h-full bg-background"></div>`;
+    container.innerHTML = `
+        <div id="table-selection-view" class="max-w-4xl mx-auto text-center">
+            <h3 class="text-2xl font-semibold mb-6">Select a Table</h3>
+            <div id="table-grid" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 gap-4"></div>
+        </div>
+        <div id="pos-view" class="hidden h-full"></div>
+    `;
 
-    const posContainer = $('#pos-container');
-    let selectedTable = null;
-    let cart = [];
-    let categories = [];
-    let products = [];
-    let activeCategory = null;
-    
-    const renderTableSelection = async () => {
-        const { data: tables, error } = await supabase.from('tables').select('*').order('table_number');
-        posContainer.innerHTML = `
-            <div class="p-6">
-                <h3 class="text-xl font-semibold mb-4">Select a Table</h3>
-                <div id="table-grid" class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
-                    ${tables.map(table => `
-                        <button class="table-select-btn aspect-square flex items-center justify-center bg-card border border-border rounded-lg shadow-sm hover:bg-primary hover:text-primary-foreground transition-colors" data-table-number="${table.table_number}">
-                            <span class="text-2xl font-bold">${table.table_number}</span>
-                        </button>
-                    `).join('')}
+    const { data: tables, error } = await supabase.from('tables').select('*').order('table_number');
+    if (error) {
+        $('#table-grid').innerHTML = `<p class="text-destructive col-span-full">Error fetching tables.</p>`;
+        return;
+    }
+
+    const tableGrid = $('#table-grid');
+    tableGrid.innerHTML = tables.map(table => `
+        <button data-table-number="${table.table_number}" class="table-select-btn aspect-square flex items-center justify-center bg-card border border-border rounded-lg text-xl font-bold hover:bg-secondary transition-colors">${table.table_number}</button>
+    `).join('');
+
+    $$('.table-select-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tableNumber = btn.dataset.tableNumber;
+            $('#table-selection-view').classList.add('hidden');
+            $('#pos-view').classList.remove('hidden');
+            renderPosForTable(tableNumber);
+        });
+    });
+}
+
+async function renderPosForTable(tableNumber) {
+    const posContainer = $('#pos-view');
+    posContainer.innerHTML = `
+        <div class="grid grid-cols-12 gap-4 h-full">
+            <!-- Categories & Menu Items -->
+            <div class="col-span-8 flex flex-col h-full bg-card border border-border rounded-lg p-4">
+                <div class="flex items-center justify-between mb-4">
+                    <button id="change-table-btn" class="text-sm font-medium hover:underline">&larr; Change Table</button>
+                    <input type="text" id="search-menu-input" placeholder="Search menu..." class="w-1/2 p-2 bg-secondary rounded-md border border-border text-sm">
                 </div>
-            </div>`;
-    };
-
-    const renderPOSInterface = () => {
-        posContainer.innerHTML = `
-            <div class="flex h-full w-full">
-                <!-- Categories -->
-                <div class="w-1/5 bg-secondary h-full flex flex-col border-r border-border">
-                    <div class="p-4 border-b border-border">
-                         <button id="back-to-tables-btn" class="w-full text-sm text-center mb-4 text-muted-foreground hover:text-primary">&larr; Change Table</button>
-                        <h3 class="font-semibold text-center text-card-foreground">Categories</h3>
-                    </div>
-                    <div id="category-list" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+                <!-- Scrollable Categories -->
+                <div id="category-tabs-container" class="mb-4 flex overflow-x-auto pb-2 space-x-2 whitespace-nowrap"></div>
+                <div id="menu-items-grid" class="flex-grow grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 overflow-y-auto"></div>
+            </div>
+            <!-- Cart -->
+            <div class="col-span-4 flex flex-col h-full bg-card border border-border rounded-lg p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold">Table #${tableNumber}</h3>
+                    <button id="clear-cart-btn" class="text-sm text-red-500 hover:underline">Clear Cart</button>
                 </div>
-
-                <!-- Menu Items -->
-                <div class="w-2/5 bg-background h-full flex flex-col">
-                     <div class="p-4 border-b border-border"><h3 class="font-semibold text-center text-card-foreground">Menu</h3></div>
-                     <div id="menu-item-grid" class="flex-1 overflow-y-auto p-4 grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+                <div id="cart-items" class="flex-grow space-y-2 overflow-y-auto">
+                    <p class="text-muted-foreground text-center pt-8">No items added yet.</p>
                 </div>
-
-                <!-- Bill/Cart -->
-                <div class="w-2/5 bg-card h-full flex flex-col border-l border-border">
-                    <div class="p-4 border-b border-border flex justify-between items-center">
-                        <h3 class="font-semibold text-lg">Table #${selectedTable}</h3>
-                        <button id="clear-cart-btn" class="text-xs text-red-500 hover:underline">Clear Cart</button>
+                <div class="pt-4 border-t border-border">
+                    <textarea id="special-instructions" placeholder="Special Instructions..." class="w-full p-2 bg-secondary rounded-md border border-border text-sm mb-4" rows="2"></textarea>
+                    <div class="space-y-1 text-sm mb-4">
+                        <div class="flex justify-between"><p>Subtotal</p><p id="cart-subtotal">₹0.00</p></div>
+                        <div class="flex justify-between"><p>GST (5%)</p><p id="cart-gst">₹0.00</p></div>
+                        <div class="flex justify-between font-bold text-base"><p>Total</p><p id="cart-total">₹0.00</p></div>
                     </div>
-                    <div id="cart-items" class="flex-1 overflow-y-auto p-4">
-                        <!-- Cart items here -->
-                    </div>
-                    <div class="p-4 border-t border-border space-y-2">
-                        <div>
-                            <label class="text-xs font-medium">Special Instructions</label>
-                            <textarea id="special-instructions" class="w-full mt-1 p-2 text-sm bg-secondary rounded-md border border-border" rows="2"></textarea>
-                        </div>
-                        <div class="text-sm">
-                            <div class="flex justify-between"><span>Subtotal</span><span id="cart-subtotal">₹0.00</span></div>
-                            <div class="flex justify-between"><span>GST (5%)</span><span id="cart-tax">₹0.00</span></div>
-                            <div class="flex justify-between font-bold text-lg"><span>Total</span><span id="cart-total">₹0.00</span></div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 pt-2">
-                            <button id="kot-btn" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50" disabled>Save & KOT</button>
-                            <button id="bill-btn" class="w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50" disabled>Print Bill</button>
-                        </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="save-kot-btn" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50" disabled>Save & KOT</button>
+                        <button id="print-bill-btn" class="w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50" disabled>Print Bill</button>
                     </div>
                 </div>
             </div>
-        `;
-        renderCategories();
-        renderMenuItems();
-        renderCart();
-    };
+        </div>
+    `;
 
-    const renderCategories = () => {
-        const list = $('#category-list');
-        list.innerHTML = categories.map(cat => `
-            <button class="category-btn w-full text-left p-3 rounded-lg text-sm font-medium ${activeCategory === cat ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted'}" data-category="${cat}">
-                ${cat}
-            </button>
-        `).join('');
-    };
+    $('#change-table-btn').addEventListener('click', () => navigateTo('take_order'));
 
-    const renderMenuItems = () => {
-        const grid = $('#menu-item-grid');
-        const itemsToShow = products.filter(p => p.category === activeCategory);
-        grid.innerHTML = itemsToShow.map(item => `
-            <button class="add-to-cart-btn bg-card p-2 rounded-lg shadow-sm border border-border text-center" data-id="${item.id}">
-                <p class="font-semibold text-sm truncate">${item.name}</p>
+    const cart = [];
+    let menuItems = [];
+
+    const updateCartView = () => {
+        const cartItemsContainer = $('#cart-items');
+        const saveKotBtn = $('#save-kot-btn');
+        const printBillBtn = $('#print-bill-btn');
+
+        if (cart.length === 0) {
+            cartItemsContainer.innerHTML = `<p class="text-muted-foreground text-center pt-8">No items added yet.</p>`;
+            saveKotBtn.disabled = true;
+            printBillBtn.disabled = true;
+        } else {
+            cartItemsContainer.innerHTML = cart.map((item, index) => `
+                <div class="flex items-center bg-secondary p-2 rounded-md">
+                    <div class="flex-grow">
+                        <p class="text-sm font-medium">${item.name}</p>
+                        <p class="text-xs text-muted-foreground">₹${item.price.toFixed(2)}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="cart-qty-btn" data-index="${index}" data-change="-1">-</button>
+                        <span class="font-medium text-sm">${item.quantity}</span>
+                        <button class="cart-qty-btn" data-index="${index}" data-change="1">+</button>
+                    </div>
+                </div>
+            `).join('');
+            saveKotBtn.disabled = false;
+            printBillBtn.disabled = false;
+        }
+
+        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const gst = subtotal * 0.05;
+        const total = subtotal + gst;
+
+        $('#cart-subtotal').textContent = `₹${subtotal.toFixed(2)}`;
+        $('#cart-gst').textContent = `₹${gst.toFixed(2)}`;
+        $('#cart-total').textContent = `₹${total.toFixed(2)}`;
+    };
+    
+    const loadAndRenderMenu = async (filter = '', category = 'All') => {
+        let query = supabase.from('products').select('*').eq('is_available', true);
+        if (filter) {
+            query = query.ilike('name', `%${filter}%`);
+        }
+        if (category !== 'All') {
+            query = query.eq('category', category);
+        }
+        const { data, error } = await query;
+        
+        if(error){ console.error(error); return; }
+        menuItems = data;
+
+        const menuGrid = $('#menu-items-grid');
+        menuGrid.innerHTML = menuItems.map(item => `
+            <button class="add-to-cart-btn text-left p-2 bg-secondary rounded-lg border border-transparent hover:border-border transition-all" data-id="${item.id}">
+                <p class="font-semibold text-sm">${item.name}</p>
                 <p class="text-xs text-muted-foreground">₹${item.price}</p>
             </button>
         `).join('');
     };
     
-    const renderCart = () => {
-        const cartItemsContainer = $('#cart-items');
-        const kotBtn = $('#kot-btn');
-        const billBtn = $('#bill-btn');
-
-        if (cart.length === 0) {
-            cartItemsContainer.innerHTML = `<p class="text-center text-muted-foreground py-16">No items added yet.</p>`;
-            kotBtn.disabled = true;
-            billBtn.disabled = true;
-        } else {
-            cartItemsContainer.innerHTML = `
-                <div class="grid grid-cols-5 gap-2 text-xs font-bold text-muted-foreground mb-2">
-                    <div class="col-span-2">Item</div>
-                    <div class="text-center">Qty</div>
-                    <div class="text-right">Price</div>
-                    <div class="text-right">Total</div>
-                </div>
-            ` + cart.map((item, index) => `
-                <div class="grid grid-cols-5 gap-2 items-center py-2 text-sm">
-                    <div class="col-span-2 font-medium">${item.name}</div>
-                    <div class="text-center flex justify-center items-center">
-                        <button class="cart-quantity-btn bg-secondary rounded-full h-5 w-5 flex items-center justify-center" data-index="${index}" data-action="decrease">-</button>
-                        <span class="w-6 text-center">${item.quantity}</span>
-                        <button class="cart-quantity-btn bg-secondary rounded-full h-5 w-5 flex items-center justify-center" data-index="${index}" data-action="increase">+</button>
-                    </div>
-                    <div class="text-right">₹${item.price.toFixed(2)}</div>
-                    <div class="text-right font-semibold">₹${(item.price * item.quantity).toFixed(2)}</div>
-                </div>
-            `).join('');
-            kotBtn.disabled = false;
-            billBtn.disabled = false;
-        }
+    const loadCategories = async () => {
+        const { data, error } = await supabase.from('products').select('category');
+        if (error) return;
         
-        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const tax = subtotal * 0.05;
-        const total = subtotal + tax;
-        $('#cart-subtotal').textContent = `₹${subtotal.toFixed(2)}`;
-        $('#cart-tax').textContent = `₹${tax.toFixed(2)}`;
-        $('#cart-total').textContent = `₹${total.toFixed(2)}`;
+        const uniqueCategories = ['All', ...new Set(data.map(p => p.category))];
+        const tabsContainer = $('#category-tabs-container');
+        tabsContainer.innerHTML = uniqueCategories.map(cat => `
+            <button class="category-tab-btn flex-shrink-0 px-4 py-2 text-sm font-medium rounded-full ${cat === 'All' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}">${cat}</button>
+        `).join('');
+        
+        $$('.category-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                $$('.category-tab-btn').forEach(b => b.classList.remove('bg-primary', 'text-primary-foreground'));
+                $$('.category-tab-btn').forEach(b => b.classList.add('bg-secondary', 'text-secondary-foreground'));
+                btn.classList.add('bg-primary', 'text-primary-foreground');
+                btn.classList.remove('bg-secondary', 'text-secondary-foreground');
+                loadAndRenderMenu($('#search-menu-input').value, btn.textContent);
+            });
+        });
     };
 
-    const loadDataForPOS = async () => {
-        const { data, error } = await supabase.from('products').select('*').eq('is_available', true).order('category').order('name');
-        if(error) { showToast('Could not load menu.', true); return; }
-        products = data;
-        categories = [...new Set(products.map(p => p.category))];
-        activeCategory = categories[0];
-        renderPOSInterface();
-    };
-
-    // Event Delegation
-    posContainer.addEventListener('click', async (e) => {
-        const target = e.target;
-        if (target.closest('.table-select-btn')) {
-            selectedTable = target.closest('.table-select-btn').dataset.tableNumber;
-            cart = [];
-            await loadDataForPOS();
-        }
-        if (target.closest('#back-to-tables-btn')) await renderTableSelection();
-        if (target.closest('.category-btn')) {
-            activeCategory = target.closest('.category-btn').dataset.category;
-            renderCategories();
-            renderMenuItems();
-        }
-        if (target.closest('#clear-cart-btn')) {
-            cart = [];
-            renderCart();
-        }
-        if (target.closest('.add-to-cart-btn')) {
-            const productId = parseInt(target.closest('.add-to-cart-btn').dataset.id);
-            const product = products.find(p => p.id === productId);
+    posContainer.addEventListener('click', e => {
+        if (e.target.closest('.add-to-cart-btn')) {
+            const btn = e.target.closest('.add-to-cart-btn');
+            const productId = parseInt(btn.dataset.id);
+            const product = menuItems.find(p => p.id === productId);
+            
             const existingItem = cart.find(item => item.id === productId);
             if (existingItem) {
                 existingItem.quantity++;
             } else {
-                cart.push({ id: product.id, name: product.name, price: product.price, quantity: 1 });
+                cart.push({ ...product, quantity: 1 });
             }
-            renderCart();
+            updateCartView();
         }
-        if (target.closest('.cart-quantity-btn')) {
-            const { index, action } = target.closest('.cart-quantity-btn').dataset;
-            if (action === 'increase') cart[index].quantity++;
-            else if (action === 'decrease' && --cart[index].quantity === 0) cart.splice(index, 1);
-            renderCart();
-        }
-        if (target.closest('#kot-btn')) {
-            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05;
-            const orderData = {
-                table_number_input: selectedTable,
-                special_instructions_input: $('#special-instructions').value,
-                total_amount_input: total,
-                source_input: 'staff',
-                order_items: cart.map(item => ({ product_id: item.id, quantity: item.quantity, price_at_time_of_order: item.price })),
-            };
-            const { error } = await supabase.rpc('create_order_with_items', orderData);
-            if (error) {
-                showToast(`Error placing order: ${error.message}`, true);
-            } else {
-                showToast('Order sent to kitchen!');
-                cart = [];
-                $('#special-instructions').value = '';
-                renderCart();
+        
+        if (e.target.classList.contains('cart-qty-btn')) {
+            const index = parseInt(e.target.dataset.index);
+            const change = parseInt(e.target.dataset.change);
+            cart[index].quantity += change;
+            if (cart[index].quantity <= 0) {
+                cart.splice(index, 1);
             }
-        }
-        if (target.closest('#bill-btn')) {
-            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05;
-            const mockOrder = {
-                id: 'DRAFT_ORDER',
-                created_at: new Date().toISOString(),
-                tables: { table_number: selectedTable },
-                total_amount: total,
-                order_items: cart.map(item => ({
-                    products: { name: item.name },
-                    quantity: item.quantity,
-                    price_at_time_of_order: item.price
-                }))
-            };
-            printBill(mockOrder, {});
+            updateCartView();
         }
     });
+    
+    $('#clear-cart-btn').addEventListener('click', () => {
+        cart.length = 0;
+        updateCartView();
+    });
+    
+    $('#search-menu-input').addEventListener('input', e => {
+        const activeCategory = $('.category-tab-btn.bg-primary')?.textContent || 'All';
+        loadAndRenderMenu(e.target.value, activeCategory);
+    });
 
-    await renderTableSelection();
+    $('#save-kot-btn').addEventListener('click', async () => {
+        const btn = $('#save-kot-btn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        
+        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const total = subtotal * 1.05;
+
+        const orderData = {
+            table_number_input: parseInt(tableNumber),
+            special_instructions_input: $('#special-instructions').value,
+            total_amount_input: total,
+            source_input: 'Staff',
+            order_items: cart.map(item => ({
+                product_id: item.id,
+                quantity: item.quantity,
+                price_at_time_of_order: item.price
+            }))
+        };
+        
+        const { error } = await supabase.rpc('create_order_with_items', orderData);
+
+        if (error) {
+            showToast(`Error placing order: ${error.message}`, true);
+            console.error("Place Order Error:", error);
+            btn.textContent = 'Save & KOT';
+            btn.disabled = false;
+        } else {
+            showToast('Order placed successfully!');
+            printKOT(cart, tableNumber, $('#special-instructions').value);
+            cart.length = 0;
+            updateCartView();
+            navigateTo('take_order');
+        }
+    });
+    
+    $('#print-bill-btn').addEventListener('click', async () => {
+        printBill(cart, tableNumber);
+    });
+    
+    await loadCategories();
+    await loadAndRenderMenu();
+    updateCartView();
 }
 
-// --- MENU MANAGEMENT ---
+
 async function renderMenu(container) {
     container.innerHTML = `
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold">Menu Items</h3>
             <button id="add-item-btn" class="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">Add New Item</button>
         </div>
-        <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
-            <div class="grid grid-cols-6 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
-                <div class="col-span-2">Name</div>
-                <div>Category</div>
-                <div>Price</div>
-                <div>Available</div>
-                <div>Actions</div>
-            </div>
-            <div id="menu-table-body" class="divide-y divide-border"></div>
+        <div class="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
+            <div id="menu-table-body"></div>
         </div>
-        <div id="menu-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[101] p-4">
+        <div id="menu-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div class="bg-card rounded-lg shadow-xl p-6 w-full max-w-md">
                 <h3 id="modal-title" class="text-lg font-semibold mb-4">Add Menu Item</h3>
                 <form id="menu-item-form" class="space-y-4">
@@ -801,19 +603,13 @@ async function renderMenu(container) {
                         <label class="text-sm font-medium">Description</label>
                         <textarea id="item-description" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border" rows="2"></textarea>
                     </div>
-                    <div>
-                        <label class="text-sm font-medium">Image</label>
-                         <input type="file" id="item-image-upload" class="w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-secondary file:text-secondary-foreground hover:file:bg-muted">
-                        <input type="hidden" id="item-image-url">
-                        <img id="image-preview" src="" class="mt-2 h-20 w-20 object-cover rounded-md hidden">
-                    </div>
                     <div class="flex items-center">
                         <input type="checkbox" id="item-available" class="h-4 w-4 rounded border-gray-300">
                         <label for="item-available" class="ml-2 text-sm font-medium">Is Available</label>
                     </div>
                     <div class="flex justify-end space-x-2 pt-4">
                         <button type="button" id="cancel-btn" class="bg-secondary text-secondary-foreground px-4 py-2 rounded-lg text-sm">Cancel</button>
-                        <button type="submit" class="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm">Save</button>
+                        <button type="submit" id="save-item-btn" class="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm">Save</button>
                     </div>
                 </form>
             </div>
@@ -828,27 +624,37 @@ async function renderMenu(container) {
 
         if (error) {
             showToast(`Failed to load menu: ${error.message}`, true);
-            if (tableBody) tableBody.innerHTML = `<p class="text-center text-destructive p-4">Error: ${error.message}</p>`;
+            tableBody.innerHTML = `<p class="text-center text-destructive p-4">Error: ${error.message}</p>`;
             return;
         }
 
-        if (tableBody) {
-            tableBody.innerHTML = products.map(item => `
-                <div class="grid grid-cols-6 gap-4 items-center px-4 py-3 text-sm">
-                    <div class="col-span-2 font-medium flex items-center">
-                        <img src="${item.image_url || 'https://placehold.co/40x40/f1f2f4/6b7280?text=??'}" class="h-10 w-10 rounded-md mr-4 object-cover">
-                        ${item.name}
-                    </div>
-                    <div>${item.category}</div>
-                    <div>₹${item.price}</div>
-                    <div><span class="px-2 py-1 text-xs rounded-full ${item.is_available ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300'}">${item.is_available ? 'Yes' : 'No'}</span></div>
-                    <div class="space-x-2">
-                        <button class="edit-item-btn text-blue-600 hover:underline" data-id="${item.id}">Edit</button>
-                        <button class="delete-item-btn text-red-600 hover:underline" data-id="${item.id}">Delete</button>
-                    </div>
-                </div>
-            `).join('');
-        }
+        tableBody.innerHTML = `
+            <table class="w-full text-sm text-left">
+                <thead class="bg-secondary">
+                    <tr>
+                        <th class="p-4 font-semibold">Name</th>
+                        <th class="p-4 font-semibold">Category</th>
+                        <th class="p-4 font-semibold">Price</th>
+                        <th class="p-4 font-semibold">Available</th>
+                        <th class="p-4 font-semibold">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${products.map(item => `
+                        <tr class="border-b border-border">
+                            <td class="p-4 font-medium">${item.name}</td>
+                            <td class="p-4 text-muted-foreground">${item.category}</td>
+                            <td class="p-4 text-muted-foreground">₹${item.price}</td>
+                            <td class="p-4"><span class="px-2 py-1 text-xs rounded-full ${item.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${item.is_available ? 'Yes' : 'No'}</span></td>
+                            <td class="p-4 space-x-2">
+                                <button class="edit-item-btn text-blue-600 hover:underline" data-id="${item.id}">Edit</button>
+                                <button class="delete-item-btn text-red-600 hover:underline" data-id="${item.id}">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
     };
 
     const openModal = (item = null) => {
@@ -859,17 +665,11 @@ async function renderMenu(container) {
         $('#item-category').value = item?.category || '';
         $('#item-price').value = item?.price || '';
         $('#item-description').value = item?.description || '';
-        $('#item-image-url').value = item?.image_url || '';
-        $('#image-preview').src = item?.image_url || '';
-        $('#image-preview').classList.toggle('hidden', !item?.image_url);
         $('#item-available').checked = item ? item.is_available : true;
     };
 
-    const closeModal = () => {
-        $('#menu-modal').classList.add('hidden');
-        $('#menu-item-form').reset();
-    }
-
+    const closeModal = () => $('#menu-modal').classList.add('hidden');
+    
     await loadMenu();
 
     $('#add-item-btn').addEventListener('click', () => openModal());
@@ -877,103 +677,100 @@ async function renderMenu(container) {
 
     $('#menu-item-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const saveBtn = $('#save-item-btn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        
         const id = $('#item-id').value;
-        const imageFile = $('#item-image-upload').files[0];
-        let imageUrl = $('#item-image-url').value;
-
-        if (imageFile) {
-            const fileName = `${Date.now()}_${imageFile.name}`;
-            const { data, error: uploadError } = await supabase.storage.from('menu-items').upload(fileName, imageFile);
-            if (uploadError) {
-                showToast(`Image upload failed: ${uploadError.message}`, true);
-                return;
-            }
-             const { data: { publicUrl } } = supabase.storage.from('menu-items').getPublicUrl(fileName);
-             imageUrl = publicUrl;
-        }
-
         const itemData = {
             name: $('#item-name').value,
             category: $('#item-category').value,
             price: parseFloat($('#item-price').value),
             description: $('#item-description').value,
-            image_url: imageUrl,
-            is_available: $('#item-available').checked
+            is_available: $('#item-available').checked,
         };
 
         const { error } = id
             ? await supabase.from('products').update(itemData).eq('id', id)
             : await supabase.from('products').insert([itemData]);
         
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save';
+
         if (error) {
             showToast(`Error saving item: ${error.message}`, true);
         } else {
             showToast(`Item ${id ? 'updated' : 'added'}.`);
             closeModal();
+            loadMenu();
         }
     });
 
     container.addEventListener('click', async (e) => {
-        const target = e.target;
-        if (target.classList.contains('edit-item-btn')) {
-            const { data } = await supabase.from('products').select('*').eq('id', target.dataset.id).single();
+        if (e.target.classList.contains('edit-item-btn')) {
+            const { data } = await supabase.from('products').select('*').eq('id', e.target.dataset.id).single();
             openModal(data);
         }
-        if (target.classList.contains('delete-item-btn')) {
-            const confirmed = await showConfirmation('Delete Item?', `You are about to delete this menu item.`);
+        if (e.target.classList.contains('delete-item-btn')) {
+            const confirmed = await showConfirmation('Delete Item?', 'This will permanently delete this menu item.');
             if (confirmed) {
-                const { error } = await supabase.from('products').delete().eq('id', target.dataset.id);
+                const { error } = await supabase.from('products').delete().eq('id', e.target.dataset.id);
                 if (error) showToast(`Error: ${error.message}`, true);
-                else showToast('Item deleted.');
+                else {
+                    showToast('Item deleted.');
+                    loadMenu();
+                }
             }
         }
     });
 }
 
-// --- ORDER TRACKING ---
+
 async function renderOrders(container) {
     container.innerHTML = `
         <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
-            <div class="grid grid-cols-6 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
+             <div class="grid grid-cols-7 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
                 <div>Order ID</div>
                 <div>Customer</div>
                 <div>Table</div>
                 <div>Total</div>
                 <div>Status</div>
+                <div>Source</div>
                 <div>Actions</div>
             </div>
-            <div id="orders-table-body" class="divide-y divide-border"><p class="text-center text-muted-foreground p-4">Loading order history...</p></div>
+            <div id="orders-table-body" class="divide-y divide-border"></div>
         </div>
-        <div id="order-detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[102]"></div>
+        <div id="order-detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"></div>
     `;
 
     const loadOrders = async () => {
-        const { data, error } = await supabase.from('orders').select('*, customers(name), tables(table_number)').order('created_at', { ascending: false });
+        const { data, error } = await supabase.from('orders').select('*, customers(name), tables(table_number)').order('created_at', { ascending: false }).limit(100);
         
         const tableBody = $('#orders-table-body');
         if (!tableBody) return;
 
         if (error) {
-            tableBody.innerHTML = `<p class="text-center text-destructive p-4">Error: ${error.message}</p>`;
+            tableBody.innerHTML = `<p class="text-destructive p-4">Error: ${error.message}</p>`;
             return;
         }
 
         tableBody.innerHTML = data.length === 0
-            ? `<p class="text-center text-muted-foreground p-4">No order history found.</p>`
+            ? `<p class="text-muted-foreground p-4 text-center">No order history found.</p>`
             : data.map(order => `
-                <div class="grid grid-cols-6 gap-4 items-center px-4 py-3 text-sm">
+                <div class="grid grid-cols-7 gap-4 items-center px-4 py-3 text-sm">
                     <div class="font-mono text-xs">${order.id.slice(0, 8)}...</div>
-                    <div>${order.customers?.name || (order.source === 'staff' ? 'Staff' : 'N/A')}</div>
+                    <div>${order.customers?.name || 'N/A'}</div>
                     <div>#${order.tables?.table_number || 'N/A'}</div>
                     <div class="font-semibold">₹${order.total_amount.toFixed(2)}</div>
                     <div>
-                        <select class="status-select bg-secondary border-border rounded-md p-1 text-xs" data-id="${order.id}">
+                        <select class="status-select w-full bg-secondary border-border rounded-md p-1 text-xs" data-id="${order.id}">
                             <option value="received" ${order.status === 'received' ? 'selected' : ''}>Received</option>
                             <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option>
                             <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
                             <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
                         </select>
                     </div>
+                    <td>${order.source || 'Customer'}</td>
                     <div>
                         <button class="view-order-btn text-blue-600 hover:underline" data-id="${order.id}">View</button>
                     </div>
@@ -985,88 +782,73 @@ async function renderOrders(container) {
 
     container.addEventListener('change', async (e) => {
         if (e.target.classList.contains('status-select')) {
-            const { error } = await supabase.rpc('update_order_status', {
-                new_status_input: e.target.value,
-                order_id_input: e.target.dataset.id
-            });
+            const { error } = await supabase.from('orders').update({status: e.target.value}).eq('id', e.target.dataset.id);
             if (error) showToast(`Error: ${error.message}`, true);
             else showToast('Order status updated.');
         }
     });
+
     container.addEventListener('click', async (e) => {
         if (e.target.classList.contains('view-order-btn')) {
-            const { data: order, error } = await supabase.from('orders').select('*, customers(name), tables(table_number), order_items(*, products(name))').eq('id', e.target.dataset.id).single();
+            const { data: order, error } = await supabase.from('orders').select('*, tables(table_number), order_items(*, products(name))').eq('id', e.target.dataset.id).single();
             if(error) { showToast('Could not fetch order details', true); return; }
             
             const modal = $('#order-detail-modal');
             modal.innerHTML = `
                 <div class="bg-card rounded-lg shadow-xl p-6 w-full max-w-lg relative">
-                    <button onclick="$('#order-detail-modal').classList.add('hidden')" class="absolute top-4 right-4 text-muted-foreground">&times;</button>
+                    <button onclick="$('#order-detail-modal').classList.add('hidden')" class="absolute top-3 right-3 text-muted-foreground text-2xl">&times;</button>
                     <h3 class="text-lg font-semibold mb-4">Order Details (${order.id.slice(0, 8)})</h3>
-                    <div id="printable-order-content" class="text-sm space-y-2 mb-4">
-                        <p><strong>Customer:</strong> ${order.customers?.name || (order.source === 'staff' ? 'Staff Order' : 'N/A')}</p>
+                    <div class="text-sm space-y-2 mb-4">
                         <p><strong>Table:</strong> #${order.tables?.table_number || 'N/A'}</p>
-                        <p><strong>Time:</strong> ${new Date(order.created_at).toLocaleString()}</p>
                         <p><strong>Instructions:</strong> ${order.special_instructions || 'None'}</p>
                     </div>
-                    <div class="border rounded-lg">
-                        <div class="max-h-60 overflow-y-auto">
-                        ${order.order_items.map(item => `<div class="flex justify-between p-2 border-b"><p>${item.quantity} x ${item.products?.name || '[Deleted Product]'}</p><p>₹${(item.price_at_time_of_order * item.quantity).toFixed(2)}</p></div>`).join('')}
-                        </div>
-                        <div class="flex justify-between p-2 font-bold"><p>Total</p><p>₹${order.total_amount.toFixed(2)}</p></div>
+                    <div class="border rounded-lg max-h-64 overflow-y-auto">
+                        ${order.order_items.map(item => `<div class="flex justify-between p-2 border-b"><p>${item.quantity} x ${item.products?.name || '[Deleted]'}</p><p>₹${(item.price_at_time_of_order * item.quantity).toFixed(2)}</p></div>`).join('')}
                     </div>
-                    <div class="mt-6 flex justify-end space-x-2">
-                         <button id="print-bill-btn" class="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm">Print Bill</button>
+                    <div class="flex justify-between p-2 font-bold mt-2"><p>Total</p><p>₹${order.total_amount.toFixed(2)}</p></div>
+                    <div class="flex justify-end space-x-2 mt-4">
+                        <button class="print-kot-modal-btn bg-blue-600 text-white px-4 py-2 text-sm rounded-lg">Print KOT</button>
+                        <button class="print-bill-modal-btn bg-green-600 text-white px-4 py-2 text-sm rounded-lg">Print Bill</button>
                     </div>
                 </div>
             `;
+            modal.querySelector('.print-kot-modal-btn').onclick = () => printKOT(order.order_items.map(oi => ({...oi.products, quantity: oi.quantity})), order.tables.table_number, order.special_instructions, order.id);
+            modal.querySelector('.print-bill-modal-btn').onclick = () => printBill(order.order_items.map(oi => ({...oi.products, quantity: oi.quantity})), order.tables.table_number, order.id);
             modal.classList.remove('hidden');
-
-            $('#print-bill-btn').addEventListener('click', () => {
-                printBill(order, {});
-            });
         }
     });
 }
 
-// --- STAFF CALLS ---
 async function renderStaffCalls(container) {
     container.innerHTML = `
         <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
-            <div class="grid grid-cols-5 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
-                <div>Time</div>
-                <div class="col-span-2">Customer</div>
-                <div>Table</div>
-                <div>Status</div>
-            </div>
             <div id="staff-calls-table-body" class="divide-y divide-border"></div>
         </div>
     `;
     
     const loadCalls = async () => {
-        const { data, error } = await supabase
-            .from('staff_calls')
-            .select('*, customers(name), tables(table_number)')
-            .order('created_at', { ascending: false });
+        const { data, error } = await supabase.from('staff_calls').select('*, tables(table_number)').order('created_at', { ascending: false });
 
         const tableBody = $('#staff-calls-table-body');
         if (!tableBody) return;
 
         if (error) {
-            tableBody.innerHTML = `<p class="text-center text-destructive p-4">Error: ${error.message}</p>`;
+            tableBody.innerHTML = `<p class="text-destructive p-4">Error: ${error.message}</p>`;
             return;
         }
         
         tableBody.innerHTML = data.length === 0
-            ? `<p class="text-center text-muted-foreground p-4">No staff calls found.</p>`
+            ? `<p class="text-muted-foreground p-4 text-center">No staff calls found.</p>`
             : data.map(call => `
-                <div class="grid grid-cols-5 gap-4 items-center px-4 py-3 text-sm">
-                    <div>${new Date(call.created_at).toLocaleString()}</div>
-                    <div class="col-span-2 font-medium">${call.customers?.name || 'N/A'}</div>
-                    <div>#${call.tables?.table_number || 'N/A'}</div>
-                    <div>
-                        <span class="px-2 py-1 text-xs rounded-full ${call.status === 'pending' ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300' : 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300'}">${call.status}</span>
-                    </div>
+                <div class="flex items-center justify-between p-3 text-sm">
+                   <div>
+                        <p><strong>Call from Table #${call.tables?.table_number || 'N/A'}</strong></p>
+                        <p class="text-xs text-muted-foreground">${new Date(call.created_at).toLocaleString()}</p>
+                   </div>
+                   <div class="flex items-center gap-4">
+                        <span class="px-2 py-1 text-xs rounded-full ${call.status === 'pending' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'}">${call.status}</span>
+                        ${call.status === 'pending' ? `<button onclick="resolveCall('${call.id}')" class="text-blue-600 hover:underline text-xs">Resolve</button>` : ''}
+                   </div>
                 </div>
             `).join('');
     };
@@ -1074,14 +856,17 @@ async function renderStaffCalls(container) {
     await loadCalls();
 }
 
+async function resolveCall(callId) {
+    const { error } = await supabase.from('staff_calls').update({ status: 'resolved' }).eq('id', callId);
+    if (error) showToast(`Error: ${error.message}`, true);
+    else showToast('Staff call resolved.');
+}
 
-// --- CUSTOMERS ---
 async function renderCustomers(container) {
     container.innerHTML = `
         <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
-            <div class="grid grid-cols-5 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
+            <div class="grid grid-cols-4 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
                 <div class="col-span-2">Name</div>
-                <div>Joined</div>
                 <div>Phone</div>
                 <div>Actions</div>
             </div>
@@ -1095,16 +880,15 @@ async function renderCustomers(container) {
         if (!tableBody) return;
 
         if (error) {
-            tableBody.innerHTML = `<p class="text-center text-destructive p-4">Error: ${error.message}</p>`;
+            tableBody.innerHTML = `<p class="text-destructive p-4 text-center">Error: ${error.message}</p>`;
             return;
         }
         
         tableBody.innerHTML = data.length === 0 
-            ? `<p class="text-center text-muted-foreground p-4">No customers found.</p>`
+            ? `<p class="text-muted-foreground p-4 text-center">No customers found.</p>`
             : data.map(customer => `
-                <div class="grid grid-cols-5 gap-4 items-center px-4 py-3 text-sm">
-                    <div class="col-span-2 font-medium">${customer.name}</div>
-                    <div>${new Date(customer.created_at).toLocaleDateString()}</div>
+                <div class="grid grid-cols-4 gap-4 items-center px-4 py-3 text-sm">
+                    <div class="col-span-2 font-medium">${customer.name || 'N/A'}</div>
                     <div>${customer.whatsapp_number || 'N/A'}</div>
                     <div>
                         <button class="delete-customer-btn text-red-600 hover:underline" data-id="${customer.id}" data-name="${customer.name}">Delete</button>
@@ -1119,18 +903,22 @@ async function renderCustomers(container) {
         if (e.target.classList.contains('delete-customer-btn')) {
             const id = e.target.dataset.id;
             const name = e.target.dataset.name;
-            const confirmed = await showConfirmation('Delete Customer?', `This will permanently delete ${name} and all their associated orders, calls, and feedback.`);
+            const confirmed = await showConfirmation('Delete Customer?', `This will permanently delete ${name} and their data. This action cannot be undone.`);
             
             if (confirmed) {
-                const { error } = await supabase.rpc('delete_customer_and_user', { customer_id_to_delete: id });
-                if (error) showToast(`Error: ${error.message}`, true);
-                else showToast(`Customer ${name} deleted.`);
+                // Note: Ensure RLS and cascade deletes are set up in Supabase for this to work safely.
+                const { error } = await supabase.from('customers').delete().eq('id', id);
+                if (error) {
+                    showToast(`Error: ${error.message}`, true);
+                } else {
+                    showToast(`Customer ${name} deleted.`);
+                    loadCustomers();
+                }
             }
         }
     });
 }
 
-// --- ANALYTICS ---
 async function renderAnalytics(container) {
     container.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1142,235 +930,94 @@ async function renderAnalytics(container) {
                 <h3 class="text-lg font-semibold mb-4">Daily Revenue (Last 30 Days)</h3>
                  <canvas id="revenueChart"></canvas>
             </div>
-            <div class="bg-card p-6 rounded-lg shadow-sm border border-border">
+             <div class="bg-card p-6 rounded-lg shadow-sm border border-border">
                 <h3 class="text-lg font-semibold mb-4">Revenue by Category</h3>
                  <canvas id="categoryRevenueChart"></canvas>
             </div>
-            <div class="bg-card p-6 rounded-lg shadow-sm border border-border">
+             <div class="bg-card p-6 rounded-lg shadow-sm border border-border">
                 <h3 class="text-lg font-semibold mb-4">Peak Order Times</h3>
                  <canvas id="peakTimesChart"></canvas>
             </div>
         </div>
     `;
     
-    const chartColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];
-
-    const renderCharts = async () => {
-        try {
-            const { data: orderItems, error: itemsError } = await supabase.from('order_items').select('quantity, price_at_time_of_order, products(name, category)');
-            const { data: orders, error: ordersError } = await supabase.from('orders').select('created_at, total_amount').gte('created_at', new Date(new Date().setDate(new Date().getDate() - 30)).toISOString());
-            if (itemsError || ordersError) { showToast('Error loading analytics data.', true); return; }
-
-            const itemCounts = orderItems.reduce((acc, item) => {
-                if (item.products) acc[item.products.name] = (acc[item.products.name] || 0) + item.quantity;
-                return acc;
-            }, {});
-            const sortedItems = Object.entries(itemCounts).sort(([, a], [, b]) => b - a).slice(0, 5);
-            new Chart($('#topItemsChart'), { type: 'bar', data: { labels: sortedItems.map(i => i[0]), datasets: [{ label: 'Quantity Sold', data: sortedItems.map(i => i[1]), backgroundColor: chartColors, }] }, options: { indexAxis: 'y', responsive: true } });
-
-            const revenueByDay = orders.reduce((acc, order) => {
-                const day = new Date(order.created_at).toISOString().split('T')[0];
-                acc[day] = (acc[day] || 0) + order.total_amount;
-                return acc;
-            }, {});
-            const sortedDays = Object.entries(revenueByDay).sort(([a], [b]) => new Date(a) - new Date(b));
-            new Chart($('#revenueChart'), { type: 'line', data: { labels: sortedDays.map(d => new Date(d[0]).toLocaleDateString()), datasets: [{ label: 'Daily Revenue (₹)', data: sortedDays.map(d => d[1]), borderColor: '#3B82F6', tension: 0.1 }] }, options: { responsive: true } });
-
-            const revenueByCategory = orderItems.reduce((acc, item) => {
-                if (item.products) acc[item.products.category] = (acc[item.products.category] || 0) + (item.quantity * item.price_at_time_of_order);
-                return acc;
-            }, {});
-            new Chart($('#categoryRevenueChart'), { type: 'doughnut', data: { labels: Object.keys(revenueByCategory), datasets: [{ label: 'Revenue', data: Object.values(revenueByCategory), backgroundColor: chartColors }] }, options: { responsive: true } });
-            
-            const ordersByHour = Array(24).fill(0);
-            orders.forEach(order => ordersByHour[new Date(order.created_at).getHours()]++);
-            new Chart($('#peakTimesChart'), { type: 'bar', data: { labels: Array.from({length: 24}, (_, i) => `${i}:00`), datasets: [{ label: 'Number of Orders', data: ordersByHour, backgroundColor: '#10B981' }] }, options: { responsive: true, scales: {x: {ticks: {maxRotation: 90, minRotation: 90}}} } });
-        } catch (e) {
-            console.error("Chart rendering failed:", e);
-        }
-    };
-    
-    setTimeout(renderCharts, 0);
+    renderAllCharts();
 }
 
-// --- REPORTS ---
 async function renderReports(container) {
     container.innerHTML = `
-        <div class="bg-card p-6 rounded-lg shadow-sm border border-border">
-            <h3 class="text-lg font-semibold mb-4">Download Sales Reports</h3>
-            <p class="text-sm text-muted-foreground mb-6">Select a date range to download a detailed sales report in CSV format.</p>
-            <div class="flex items-center space-x-2">
-                <button class="report-btn bg-secondary text-secondary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted" data-range="today">Today</button>
-                <button class="report-btn bg-secondary text-secondary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted" data-range="7d">Last 7 Days</button>
-                <button class="report-btn bg-secondary text-secondary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted" data-range="30d">Last 30 Days</button>
-            </div>
-        </div>
-    `;
-    container.addEventListener('click', handleReportDownload);
-}
-
-async function handleReportDownload(e) {
-    if (!e.target.classList.contains('report-btn')) return;
-
-    const button = e.target;
-    const originalText = button.textContent;
-    button.disabled = true;
-    button.textContent = 'Generating...';
-
-    const range = button.dataset.range;
-    const now = new Date();
-    let startDate = new Date();
-
-    if (range === 'today') {
-        startDate.setHours(0, 0, 0, 0);
-    } else if (range === '7d') {
-        startDate.setDate(now.getDate() - 7);
-    } else if (range === '30d') {
-        startDate.setDate(now.getDate() - 30);
-    }
-    startDate.setHours(0, 0, 0, 0);
-
-
-    try {
-        const { data, error } = await supabase
-            .from('orders')
-            .select(`id, created_at, total_amount, tables ( table_number ), order_items ( quantity, price_at_time_of_order, products ( name, category ) )`)
-            .gte('created_at', startDate.toISOString())
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        
-        if (data.length === 0) {
-            showToast('No data found for the selected period.', true);
-            return;
-        }
-
-        const csvRows = [];
-        const headers = ['OrderID', 'Date', 'Time', 'TableNumber', 'ItemName', 'Category', 'Quantity', 'ItemPrice', 'TotalItemPrice'];
-        csvRows.push(headers.join(','));
-
-        for (const order of data) {
-            for (const item of order.order_items) {
-                const row = [
-                    order.id,
-                    new Date(order.created_at).toLocaleDateString(),
-                    new Date(order.created_at).toLocaleTimeString(),
-                    order.tables?.table_number || 'N/A',
-                    `"${item.products?.name.replace(/"/g, '""') || 'Deleted Product'}"`,
-                    item.products?.category || 'N/A',
-                    item.quantity,
-                    item.price_at_time_of_order,
-                    (item.quantity * item.price_at_time_of_order).toFixed(2)
-                ];
-                csvRows.push(row.join(','));
-            }
-        }
-        downloadCSV(csvRows.join('\n'), `sales-report-${range}-${new Date().toISOString().split('T')[0]}.csv`);
-    } catch (err) {
-        showToast(`Error generating report: ${err.message}`, true);
-        console.error(err);
-    } finally {
-        button.disabled = false;
-        button.textContent = originalText;
-    }
-}
-
-
-// --- QR CODE GENERATOR ---
-function renderQrCodes(container) {
-    container.innerHTML = `
-        <div class="max-w-md mx-auto bg-card p-8 rounded-lg shadow-sm border border-border">
-            <h3 class="text-lg font-semibold text-center mb-4">Generate Table QR Code</h3>
-            <div class="flex space-x-2">
-                <input type="number" id="table-number-input" placeholder="Enter table number" class="w-full p-2 bg-secondary rounded-md border border-border">
-                <button id="generate-qr-btn" class="bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium">Generate</button>
-            </div>
-            <div id="qrcode-container" class="mt-6 flex flex-col items-center justify-center bg-secondary p-4 rounded-lg hidden">
-                <h4 id="qr-title" class="font-semibold mb-2"></h4>
-                <div id="qrcode" class="bg-white p-4 rounded-md"></div>
-                 <button id="print-qr-btn" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm">Print QR Code</button>
-            </div>
-        </div>
-    `;
-
-    $('#generate-qr-btn').addEventListener('click', () => {
-        const tableNumber = $('#table-number-input').value;
-        if (!tableNumber) { showToast('Please enter a table number.', true); return; }
-        const url = `https://hxouse1.onrender.com/?table=${tableNumber}`;
-        const qrcodeContainer = $('#qrcode');
-        qrcodeContainer.innerHTML = '';
-        const qr = qrcode(0, 'L');
-        qr.addData(url);
-        qr.make();
-        qrcodeContainer.innerHTML = qr.createImgTag(6, 8);
-        $('#qr-title').textContent = `QR Code for Table #${tableNumber}`;
-        $('#qrcode-container').classList.remove('hidden');
-    });
-
-    $('#print-qr-btn').addEventListener('click', () => {
-        const qrContent = $('#qrcode-container').innerHTML;
-        const printWindow = window.open('', '', 'height=600,width=800');
-        printWindow.document.write(`<html><head><title>Print QR Code</title><style>body { font-family: sans-serif; text-align: center; margin-top: 50px; }</style></head><body>${qrContent}</body></html>`);
-        printWindow.document.close();
-        printWindow.print();
-    });
-}
-
-// --- FEEDBACK ---
-async function renderFeedback(container) {
-    container.innerHTML = `
-        <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
-            <div class="grid grid-cols-6 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
-                <div class="col-span-2">Customer</div>
-                <div>Rating</div>
-                <div class="col-span-2">Comment</div>
-                <div>Actions</div>
-            </div>
-            <div id="feedback-table-body" class="divide-y divide-border"></div>
-        </div>
-    `;
-
-    const loadFeedback = async () => {
-        const { data, error } = await supabase.from('feedback').select('*, customers(name)').order('created_at', { ascending: false });
-        const tableBody = $('#feedback-table-body');
-        if (!tableBody) return;
-        if (error) { tableBody.innerHTML = `<p class="text-center text-destructive p-4">Error: ${error.message}</p>`; return; }
-
-        const ratingToStars = (rating) => '★'.repeat(rating) + '☆'.repeat(5 - rating);
-        tableBody.innerHTML = data.length === 0
-            ? `<p class="text-center text-muted-foreground p-4">No feedback has been submitted yet.</p>`
-            : data.map(item => `
-                <div class="grid grid-cols-6 gap-4 items-start px-4 py-3 text-sm">
-                    <div class="col-span-2 font-medium">${item.customers?.name || 'Anonymous'}</div>
-                    <div><span class="text-yellow-500">${ratingToStars(item.rating)}</span></div>
-                    <div class="col-span-2 text-muted-foreground">${item.content || 'No comment'}</div>
-                    <div><button class="delete-feedback-btn text-red-600 hover:underline" data-id="${item.id}">Delete</button></div>
+         <div class="max-w-2xl mx-auto bg-card p-8 rounded-lg shadow-sm border border-border">
+            <h3 class="text-lg font-semibold mb-6">Download Sales Reports</h3>
+            <div class="space-y-4">
+                <p class="text-muted-foreground text-sm">Select a date range to download a detailed sales report in CSV format.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <button data-range="today" class="report-btn bg-secondary hover:bg-muted text-secondary-foreground font-medium py-3 rounded-lg">Today</button>
+                    <button data-range="7d" class="report-btn bg-secondary hover:bg-muted text-secondary-foreground font-medium py-3 rounded-lg">Last 7 Days</button>
+                    <button data-range="30d" class="report-btn bg-secondary hover:bg-muted text-secondary-foreground font-medium py-3 rounded-lg">Last 30 Days</button>
                 </div>
-            `).join('');
-    };
+            </div>
+        </div>
+    `;
 
-    await loadFeedback();
+    $$('.report-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const range = e.target.dataset.range;
+            let startDate = new Date();
+            if (range === 'today') startDate.setHours(0, 0, 0, 0);
+            if (range === '7d') startDate.setDate(startDate.getDate() - 7);
+            if (range === '30d') startDate.setDate(startDate.getDate() - 30);
+            
+            showToast('Generating report...');
 
-    container.addEventListener('click', async (e) => {
-        if (e.target.classList.contains('delete-feedback-btn')) {
-            const id = e.target.dataset.id;
-            const confirmed = await showConfirmation('Delete Feedback?', 'Are you sure you want to delete this feedback entry?');
-            if (confirmed) {
-                const { error } = await supabase.from('feedback').delete().eq('id', id);
-                if (error) showToast(`Error: ${error.message}`, true);
-                else showToast('Feedback deleted.');
+            const { data, error } = await supabase.from('orders')
+                .select(`id, created_at, total_amount, tables(table_number), order_items(quantity, products(name, category, price))`)
+                .gte('created_at', startDate.toISOString())
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                showToast('Error fetching report data.', true);
+                return;
             }
-        }
+            
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "OrderID,Timestamp,Table,ItemName,Category,Quantity,Price,Total\n";
+            
+            data.forEach(order => {
+                order.order_items.forEach(item => {
+                    const row = [
+                        order.id,
+                        order.created_at,
+                        order.tables.table_number,
+                        item.products.name,
+                        item.products.category,
+                        item.quantity,
+                        item.products.price,
+                        item.quantity * item.products.price
+                    ].join(",");
+                    csvContent += row + "\n";
+                });
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `sales_report_${range}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
     });
 }
 
-// --- SETTINGS ---
+
 async function renderSettings(container) {
     container.innerHTML = `
         <div class="max-w-2xl mx-auto bg-card p-8 rounded-lg shadow-sm border border-border">
             <h3 class="text-lg font-semibold mb-6">Application Settings</h3>
             <form id="settings-form" class="space-y-4">
-                <div id="settings-fields"><p class="text-muted-foreground">Loading settings...</p></div>
+                <div id="settings-fields">
+                    <p class="text-muted-foreground">Loading settings...</p>
+                </div>
                 <div class="flex justify-end pt-4">
                     <button type="submit" class="bg-primary text-primary-foreground px-6 py-2 rounded-lg font-medium">Save Settings</button>
                 </div>
@@ -1382,10 +1029,20 @@ async function renderSettings(container) {
         const { data, error } = await supabase.from('settings').select('*');
         const fieldsContainer = $('#settings-fields');
         if (!fieldsContainer) return;
-        if (error) { fieldsContainer.innerHTML = `<p class="text-destructive">Error loading settings: ${error.message}</p>`; return; }
+
+        if (error) {
+            fieldsContainer.innerHTML = `<p class="text-destructive">Error loading settings: ${error.message}</p>`;
+            return;
+        }
+
         fieldsContainer.innerHTML = data.map(setting => {
             const formattedKey = setting.key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            return `<div><label for="setting-${setting.key}" class="text-sm font-medium text-card-foreground">${formattedKey}</label><input type="text" id="setting-${setting.key}" name="${setting.key}" value="${setting.value}" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border"></div>`;
+            return `
+                <div>
+                    <label for="setting-${setting.key}" class="text-sm font-medium text-card-foreground">${formattedKey}</label>
+                    <input type="text" id="setting-${setting.key}" name="${setting.key}" value="${setting.value}" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border">
+                </div>
+            `;
         }).join('');
     };
     
@@ -1394,27 +1051,175 @@ async function renderSettings(container) {
     $('#settings-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
-        const updates = Array.from(formData.entries()).map(([key, value]) => ({ key, value }));
-        const { error } = await supabase.from('settings').upsert(updates);
-        if (error) showToast(`Error saving settings: ${error.message}`, true);
-        else showToast('Settings saved successfully.');
+        const updates = [];
+        for (let [key, value] of formData.entries()) {
+            updates.push({ key, value });
+        }
+
+        // Use onConflict to either insert new settings or update existing ones.
+        const { error } = await supabase.from('settings').upsert(updates, { onConflict: 'key' });
+
+        if (error) {
+            showToast(`Error saving settings: ${error.message}`, true);
+        } else {
+            showToast('Settings saved successfully.');
+        }
     });
 }
 
+// =================================================================================
+//  SECTION 4: UTILITIES (Printing, Charts, etc.)
+// =================================================================================
+
+function printKOT(items, tableNumber, specialInstructions, orderId = null) {
+    const printContainer = $('#printable-area');
+    const now = new Date();
+    const kotId = orderId ? orderId.slice(0, 5).toUpperCase() : 'N/A';
+    
+    let itemsHtml = '';
+    items.forEach(item => {
+        itemsHtml += `
+            <tr>
+                <td style="vertical-align: top;">${item.name}</td>
+                <td style="vertical-align: top;">--</td>
+                <td style="vertical-align: top; text-align: center;">${item.quantity}</td>
+            </tr>
+        `;
+    });
+
+    printContainer.innerHTML = `
+        <div style="font-family: 'Courier New', monospace; font-size: 12px; width: 280px; padding: 10px;">
+            <p>Running Table</p>
+            <p>${now.toLocaleDateString()} ${now.toLocaleTimeString()}</p>
+            <p>KOT - ${kotId}</p>
+            <p>Dine In</p>
+            <p>Table No: T-${tableNumber}</p>
+            <p>Biller: ${state.user?.email || 'Admin'}</p>
+            <hr style="border-top: 1px dashed black; margin: 5px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="text-align: left;">Item</th>
+                        <th style="text-align: left;">Special Note</th>
+                        <th style="text-align: center;">Qty.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${itemsHtml}
+                </tbody>
+            </table>
+            <hr style="border-top: 1px dashed black; margin: 5px 0;">
+             ${specialInstructions ? `<p><strong>Note:</strong> ${specialInstructions}</p>` : ''}
+        </div>
+    `;
+    window.print();
+}
+
+function printBill(items, tableNumber, orderId = null) {
+    const printContainer = $('#printable-area');
+    const now = new Date();
+    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const gst = subtotal * 0.05;
+    const total = subtotal + gst;
+    
+    let itemsHtml = items.map(item => `
+        <tr>
+            <td>${item.quantity} x ${item.name}</td>
+            <td style="text-align: right;">${(item.price * item.quantity).toFixed(2)}</td>
+        </tr>
+    `).join('');
+
+    printContainer.innerHTML = `
+        <div style="font-family: 'Courier New', monospace; font-size: 12px; width: 280px; padding: 10px; text-align: center;">
+            <h3 style="font-size: 16px; margin: 0;">${INVOICE_DETAILS.name}</h3>
+            <p style="margin: 2px 0;">${INVOICE_DETAILS.address}</p>
+            ${INVOICE_DETAILS.phone ? `<p style="margin: 2px 0;">Ph: ${INVOICE_DETAILS.phone}</p>` : ''}
+            ${INVOICE_DETAILS.gstin ? `<p style="margin: 2px 0;">GSTIN: ${INVOICE_DETAILS.gstin}</p>` : ''}
+            <hr style="border-top: 1px dashed black; margin: 5px 0;">
+            <p>Date: ${now.toLocaleString()}</p>
+            <p>Table: #${tableNumber}</p>
+            ${orderId ? `<p>Order ID: ${orderId.slice(0, 8)}</p>` : ''}
+            <hr style="border-top: 1px dashed black; margin: 5px 0;">
+            <table style="width: 100%; text-align: left;">
+                ${itemsHtml}
+            </table>
+            <hr style="border-top: 1px dashed black; margin: 5px 0;">
+            <table style="width: 100%;">
+                <tr><td>Subtotal</td><td style="text-align: right;">${subtotal.toFixed(2)}</td></tr>
+                <tr><td>GST (5%)</td><td style="text-align: right;">${gst.toFixed(2)}</td></tr>
+                <tr style="font-weight: bold;"><td>Total</td><td style="text-align: right;">${total.toFixed(2)}</td></tr>
+            </table>
+            <hr style="border-top: 1px dashed black; margin: 5px 0;">
+            <p style="margin-top: 10px;">${INVOICE_DETAILS.footer}</p>
+        </div>
+    `;
+    window.print();
+}
+
+async function renderAllCharts() {
+    // This function can be optimized by fetching data once
+    const { data: orderItems, error: itemsError } = await supabase.from('order_items').select('quantity, products(name, category, price)');
+    const { data: orders, error: ordersError } = await supabase.from('orders').select('created_at, total_amount').gte('created_at', new Date(new Date().setDate(new Date().getDate() - 30)).toISOString());
+
+    if(itemsError || ordersError) { console.error("Chart data error"); return; }
+    
+    // Top Selling Items
+    const itemCounts = orderItems.reduce((acc, item) => {
+        if (!item.products) return acc;
+        acc[item.products.name] = (acc[item.products.name] || 0) + item.quantity;
+        return acc;
+    }, {});
+    const sortedItems = Object.entries(itemCounts).sort(([,a],[,b]) => b-a).slice(0, 5);
+    if ($('#topItemsChart')) new Chart($('#topItemsChart'), { type: 'bar', data: { labels: sortedItems.map(i => i[0]), datasets: [{ label: 'Quantity Sold', data: sortedItems.map(i => i[1]), backgroundColor: '#3b82f6' }] }, options: { indexAxis: 'y', responsive: true } });
+
+    // Daily Revenue
+    const revenueByDay = orders.reduce((acc, order) => {
+        const day = new Date(order.created_at).toISOString().split('T')[0];
+        acc[day] = (acc[day] || 0) + order.total_amount;
+        return acc;
+    }, {});
+    const sortedDays = Object.entries(revenueByDay).sort(([a],[b]) => new Date(a) - new Date(b));
+    if ($('#revenueChart')) new Chart($('#revenueChart'), { type: 'line', data: { labels: sortedDays.map(d => new Date(d[0]).toLocaleDateString('en-GB', {day:'numeric', month:'short'})), datasets: [{ label: 'Daily Revenue (₹)', data: sortedDays.map(d => d[1]), borderColor: '#10b981', tension: 0.1 }] }, options: { responsive: true } });
+
+    // Revenue by Category
+    const revenueByCategory = orderItems.reduce((acc, item) => {
+        if (!item.products) return acc;
+        const category = item.products.category;
+        acc[category] = (acc[category] || 0) + (item.quantity * item.products.price);
+        return acc;
+    }, {});
+    if ($('#categoryRevenueChart')) new Chart($('#categoryRevenueChart'), { type: 'pie', data: { labels: Object.keys(revenueByCategory), datasets: [{ data: Object.values(revenueByCategory) }] }, options: { responsive: true } });
+    
+    // Peak Order Times
+    const ordersByHour = orders.reduce((acc, order) => {
+        const hour = new Date(order.created_at).getHours();
+        acc[hour] = (acc[hour] || 0) + 1;
+        return acc;
+    }, {});
+    const hours = Array.from({length: 24}, (_, i) => i);
+    if ($('#peakTimesChart')) new Chart($('#peakTimesChart'), { type: 'bar', data: { labels: hours.map(h => `${h}:00`), datasets: [{ label: 'Number of Orders', data: hours.map(h => ordersByHour[h] || 0), backgroundColor: '#f97316' }] }, options: { responsive: true } });
+}
+
 
 // =================================================================================
-//  SECTION 4: INITIALIZATION & REALTIME LISTENERS
+//  SECTION 5: INITIALIZATION & REALTIME LISTENERS
 // =================================================================================
 
 function applyTheme(theme) {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    document.documentElement.classList.toggle('light', theme !== 'dark');
-    $('#theme-icon-dark').classList.toggle('hidden', theme !== 'dark');
-    $('#theme-icon-light').classList.toggle('hidden', theme === 'dark');
+    if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+        $('#theme-icon-dark').classList.remove('hidden');
+        $('#theme-icon-light').classList.add('hidden');
+    } else {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+        $('#theme-icon-light').classList.remove('hidden');
+        $('#theme-icon-dark').classList.add('hidden');
+    }
     localStorage.setItem('theme', theme);
 }
 
-// --- INITIALIZATION ---
 async function initializeApp() {
     $('#login-screen').classList.add('hidden');
     $('#app-container').classList.remove('hidden');
@@ -1422,9 +1227,8 @@ async function initializeApp() {
     $('#user-email').textContent = state.user.email;
     applyTheme(localStorage.getItem('theme') || 'light');
     
-    $('#theme-toggle').addEventListener('click', () => applyTheme(localStorage.getItem('theme') === 'dark' ? 'light' : 'dark'));
+    $('#theme-toggle').addEventListener('click', () => applyTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark'));
     $('#logout-btn').addEventListener('click', async () => { await supabase.auth.signOut(); window.location.reload(); });
-    document.body.addEventListener('click', initializeAudio, { once: true });
     
     $('#confirm-cancel-btn').addEventListener('click', () => { $('#confirm-modal').classList.add('hidden'); if (state.confirmPromise) state.confirmPromise(false); });
     $('#confirm-ok-btn').addEventListener('click', () => { $('#confirm-modal').classList.add('hidden'); if (state.confirmPromise) state.confirmPromise(true); });
@@ -1432,31 +1236,12 @@ async function initializeApp() {
     supabase.channel('public-changes')
         .on('postgres_changes', { event: '*', schema: 'public' }, payload => {
             console.log('Realtime Event:', payload);
-            const activePage = state.currentPage;
-            const table = payload.table;
-            
-            if (activePage === 'dashboard') loadDashboardStats();
-            if (activePage === 'dashboard' && table === 'orders') loadLiveOrders();
-            if (activePage === 'dashboard' && table === 'staff_calls') loadLiveStaffCalls();
-            if (activePage === 'orders' && table === 'orders') PAGES.orders.render($('#page-content'));
-            if (activePage === 'analytics' || activePage === 'reports') PAGES[activePage].render($('#page-content'));
-            if (activePage === 'staff_calls' && table === 'staff_calls') PAGES.staff_calls.render($('#page-content'));
-            if (activePage === 'menu' && table === 'products') PAGES.menu.render($('#page-content'));
-            if (activePage === 'customers' && table === 'customers') PAGES.customers.render($('#page-content'));
-            if (activePage === 'feedback' && table === 'feedback') PAGES.feedback.render($('#page-content'));
-            if (activePage === 'settings' && table === 'settings') PAGES.settings.render($('#page-content'));
-
-            if (payload.eventType === 'INSERT') {
-                if (table === 'orders') {
-                    supabase.from('orders').select('*, customers(name), tables(table_number)').eq('id', payload.new.id).single().then(({ data }) => {
-                        if(data) showAlert(`<h2 class="text-3xl font-bold text-destructive mb-4">New Order!</h2><p class="text-lg">Table #${data.tables?.table_number || 'N/A'}</p><button onclick="hideAlert()" class="mt-4 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">OK</button>`);
-                    });
-                } else if (table === 'staff_calls') {
-                     supabase.from('staff_calls').select('*, customers(name), tables(table_number)').eq('id', payload.new.id).single().then(({data}) => {
-                        if(data) showAlert(`<h2 class="text-3xl font-bold text-orange-500 mb-4">Staff Call!</h2><p class="text-lg">From Table #${data.tables?.table_number || 'N/A'}</p><button onclick="hideAlert()" class="mt-6 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">OK</button>`);
-                     });
-                }
-            }
+            const page = state.currentPage;
+            if (page === 'dashboard') renderDashboard($('#page-content'));
+            if ((page === 'orders' && payload.table === 'orders') || (page === 'orders' && payload.table === 'order_items')) PAGES.orders.render($('#page-content'));
+            if (page === 'menu' && payload.table === 'products') PAGES.menu.render($('#page-content'));
+            if (page === 'staff_calls' && payload.table === 'staff_calls') PAGES.staff_calls.render($('#page-content'));
+            if (page === 'analytics') renderAllCharts();
         })
         .subscribe();
 
@@ -1466,18 +1251,24 @@ async function initializeApp() {
 document.addEventListener('DOMContentLoaded', async () => {
     $('#login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const email = $('#email').value;
+        const password = $('#password').value;
+        const errorEl = $('#login-error');
         const button = e.target.querySelector('button');
         button.disabled = true;
         button.textContent = "Signing In...";
-        const { data, error } = await supabase.auth.signInWithPassword({ email: $('#email').value, password: $('#password').value });
+
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
         if (error) {
-            $('#login-error').textContent = error.message;
-            button.disabled = false;
-            button.textContent = "Sign In";
+            errorEl.textContent = error.message;
         } else {
+            errorEl.textContent = '';
             state.user = data.user;
             await initializeApp();
         }
+        button.disabled = false;
+        button.textContent = "Sign In";
     });
 
     const { data: { session } } = await supabase.auth.getSession();

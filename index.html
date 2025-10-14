@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator/qrcode.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -41,7 +42,6 @@
         ::-webkit-scrollbar-thumb { background: var(--muted-foreground); border-radius: 4px; border: 2px solid var(--background); }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
 
-        /* Styles for printable KOT and Bill */
         @media print {
             body * { visibility: hidden; }
             #printable-area, #printable-area * { visibility: visible; }
@@ -75,14 +75,9 @@
     <!-- Main App Container -->
     <div id="app-container" class="hidden">
         <div class="flex h-screen bg-background">
-            <!-- Sidebar -->
             <aside class="w-64 flex-shrink-0 bg-card border-r border-border flex flex-col">
-                <div class="h-20 flex items-center justify-center p-4 border-b border-border">
-                    <h1 class="text-xl font-bold">HXOUSE CO.</h1>
-                </div>
-                <nav id="sidebar-nav" class="flex-grow p-4 space-y-1">
-                    <!-- Nav items will be injected by JS -->
-                </nav>
+                <div class="h-20 flex items-center justify-center p-4 border-b border-border"><h1 class="text-xl font-bold">HXOUSE CO.</h1></div>
+                <nav id="sidebar-nav" class="flex-grow p-4 space-y-1"></nav>
                 <div class="p-4 border-t border-border space-y-2">
                     <button id="theme-toggle" class="w-full flex items-center justify-center p-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted transition-colors">
                         <svg id="theme-icon-light" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -94,8 +89,6 @@
                     </button>
                 </div>
             </aside>
-
-            <!-- Main Content -->
             <main class="flex-1 flex flex-col overflow-hidden">
                 <header class="h-16 bg-card border-b border-border flex items-center justify-between px-6 flex-shrink-0">
                     <h2 id="page-title" class="text-xl font-semibold text-card-foreground">Dashboard</h2>
@@ -104,19 +97,13 @@
                         <div id="user-email" class="text-sm text-muted-foreground"></div>
                     </div>
                 </header>
-                <div id="page-content" class="flex-1 overflow-y-auto p-6 space-y-6">
-                    <!-- Content will be injected by JS -->
-                </div>
+                <div id="page-content" class="flex-1 overflow-y-auto p-6 space-y-6"></div>
             </main>
         </div>
     </div>
     
-    <!-- Toast Notification -->
-    <div id="toast" class="hidden fixed bottom-5 right-5 bg-primary text-primary-foreground py-2 px-4 rounded-lg shadow-lg text-sm z-[200]">
-        <p id="toast-message"></p>
-    </div>
+    <div id="toast" class="hidden fixed bottom-5 right-5 bg-primary text-primary-foreground py-2 px-4 rounded-lg shadow-lg text-sm z-[200]"><p id="toast-message"></p></div>
     
-    <!-- Universal Confirmation Modal -->
     <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[102]">
         <div class="bg-card rounded-lg shadow-xl p-6 w-full max-w-sm">
             <h3 id="confirm-title" class="text-lg font-semibold mb-2">Are you sure?</h3>
@@ -127,122 +114,31 @@
             </div>
         </div>
     </div>
+
+    <div id="alert-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[101]">
+        <div id="alert-modal-content" class="bg-card p-8 rounded-lg shadow-2xl text-center w-full max-w-md transform transition-all"></div>
+    </div>
     
-    <!-- Area for printing -->
     <div id="printable-area" class="hidden"></div>
+    <audio id="notification-sound" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUReb09PAgAFAAgACgANAA4ADwAQABEAEgAUABUAFgAYABoAGwAcAB0AHgAfACAAIQAiACMAJAAlACYAJwAoACkAKgArACwALQAuAC8AMAAxADIAMwA0ADUANgA3ADgAOQA6ADsAPAA9AD4APwBAAEEAQgBDAEQARQBGAEcASABJAEoASwBMAE0ATgBPAFAAUQBSAFMAVABVAFYAVwBYAFkAWgBbAFwAXQBeAF8AYABhAGIAYwBkAGUAZgBnAGgAaQBjAGIAYwBlAGYAZwBpAGgAZwBlAGMAZAFlAGYAZwBoAGgAZwBlAGMAZAFlAGYAZwBlAGQAYwBiAGIAYABfAF4AXQBcAFsAWgBZAFgAVwBTAFIAUgBRAFIAUgBRAFAATwBOAEwASwBIAEcARgBFAEMARABDAEEAPwA+ADwAOwA5ADcANgA0ADMANAAxAC8ALwAtACsAKgApACcAJgAjACIAIAAfAB0AGwAaABgAFwAVABIAEQAPAA0ACwAJAAcABgADAAIAAAEAgf/e/6D/uP+t/6f/oP+a/5b/kv+P/4r/if+G/4T/hP+G/4f/iP+L/43/kP+U/5b/mP+b/53/nv+g/6L/pv+q/6v/rP+v/7L/tP+2/7f/uf+6/7v/vP+9/77/wP/A/8H/wv/D/8T/xf/G/8f/yP/J/8r/zP/N/87/z//Q/9H/0v/T/9X/1v/X/9j/2f/a/9v/3P/d/97/3//g/w=="></audio>
 
 
 <script>
 // =================================================================================
-//  SECTION 1: SETUP & CONFIGURATION
-// =================================================================================
-const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => document.querySelectorAll(selector);
-
-const SUPABASE_URL = 'https://ttdnlatylcqrevzlyrru.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0ZG5sYXR5bGNxcmV2emx5cnJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxNzAyMDEsImV4cCI6MjA3NTc0NjIwMX0.aiQ1_viA1JrugEyMWxA2e5f2Aqrao9BNgCTb70NWyCc';
-const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-const state = {
-    currentPage: 'dashboard',
-    user: null,
-    confirmPromise: null,
-};
-
-const INVOICE_DETAILS = {
-    name: "HXOUSE COFFEE CO",
-    address: "SM TOWER BABA MARKET DCM VAISHALI NAGAR JAIPUR",
-    gstin: "", // Add GSTIN here if needed
-    phone: "", // Add Phone number here if needed
-    footer: "THANKYOU FOR VISITING"
-};
-
-const ICONS = {
-    dashboard: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>`,
-    take_order: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`,
-    orders: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`,
-    menu: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M2 6h20M2 18h20"/></svg>`,
-    customers: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
-    staff_calls: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
-    analytics: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8a5 5 0 0 1-6.4 0l-4.3 4.3a5 5 0 0 1-6.4 0"/><path d="M12.3 19.3a5 5 0 0 1-6.4 0"/><path d="M22 3a5 5 0 0 1-6.4 0"/></svg>`,
-    reports: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`,
-    settings: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
-};
-
-const PAGES = {
-    dashboard: { title: "Dashboard", icon: ICONS.dashboard, render: renderDashboard },
-    take_order: { title: "Take Order", icon: ICONS.take_order, render: renderTakeOrder },
-    orders: { title: "Orders", icon: ICONS.orders, render: renderOrders },
-    menu: { title: "Menu", icon: ICONS.menu, render: renderMenu },
-    customers: { title: "Customers", icon: ICONS.customers, render: renderCustomers },
-    staff_calls: { title: "Staff Calls", icon: ICONS.staff_calls, render: renderStaffCalls },
-    analytics: { title: "Analytics", icon: ICONS.analytics, render: renderAnalytics },
-    reports: { title: "Reports", icon: ICONS.reports, render: renderReports },
-    settings: { title: "Settings", icon: ICONS.settings, render: renderSettings },
-};
-
-// =================================================================================
-//  SECTION 2: CORE LOGIC & NAVIGATION
-// =================================================================================
-
-function navigateTo(page) {
-    if (!PAGES[page]) {
-        console.error(`Page "${page}" does not exist.`);
-        return;
-    }
-    state.currentPage = page;
-    render();
-}
-
-function render() {
-    const navContainer = $('#sidebar-nav');
-    navContainer.innerHTML = Object.keys(PAGES).map(key => {
-        const page = PAGES[key];
-        const isActive = state.currentPage === key;
-        return `
-            <button onclick="navigateTo('${key}')" class="w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-secondary-foreground'}">
-                ${page.icon}
-                ${page.title}
-            </button>
-        `;
-    }).join('');
-
-    const pageContent = $('#page-content');
-    const pageTitle = $('#page-title');
-    pageContent.innerHTML = '<div class="text-center text-muted-foreground p-8">Loading...</div>';
-    pageTitle.textContent = PAGES[state.currentPage].title;
-    
-    pageContent.classList.remove('fade-in');
-    void pageContent.offsetWidth; 
-    pageContent.classList.add('fade-in');
-
-    PAGES[state.currentPage].render(pageContent);
-}
-
-function showToast(message, isError = false) {
-    const toast = $('#toast'), p = $('#toast-message');
-    p.textContent = message;
-    toast.className = `fixed bottom-5 right-5 text-primary-foreground py-2 px-4 rounded-lg shadow-lg text-sm z-[200] ${isError ? 'bg-destructive' : 'bg-primary'}`;
-    toast.classList.remove('hidden');
-    setTimeout(() => { toast.classList.add('hidden'); }, 3000);
-}
-
-async function showConfirmation(title, message) {
-    $('#confirm-title').textContent = title;
-    $('#confirm-message').textContent = message;
-    $('#confirm-modal').classList.remove('hidden');
-    
-    return new Promise((resolve) => {
-        state.confirmPromise = resolve;
-    });
-}
-
-// =================================================================================
-//  SECTION 3: PAGE RENDERERS
+//  SECTION: PAGE RENDERERS
 // =================================================================================
 
 async function renderDashboard(container) {
     container.innerHTML = `
+        <div id="audio-prompt" class="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-300 p-4 mb-6 rounded-r-lg" role="alert">
+             <div class="flex">
+                <div class="py-1"><svg class="fill-current h-6 w-6 text-yellow-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zM9 11v4h2v-4H9zm0-4h2v2H9V7z"/></svg></div>
+                <div>
+                  <p class="font-bold">Enable Sound Notifications</p>
+                  <p class="text-sm">Click anywhere on the page to enable sound for new orders and staff calls.</p>
+                </div>
+            </div>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <div class="bg-card p-5 rounded-lg border border-border shadow-sm"><h4 class="text-sm font-medium text-muted-foreground">Today's Revenue</h4><p id="db-revenue" class="text-2xl font-bold">₹0.00</p></div>
             <div class="bg-card p-5 rounded-lg border border-border shadow-sm"><h4 class="text-sm font-medium text-muted-foreground">Today's Orders</h4><p id="db-orders" class="text-2xl font-bold">0</p></div>
@@ -260,6 +156,11 @@ async function renderDashboard(container) {
             </div>
         </div>
     `;
+
+    if (state.audioInitialized) {
+        const audioPrompt = $('#audio-prompt');
+        if (audioPrompt) audioPrompt.style.display = 'none';
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -944,6 +845,66 @@ async function renderAnalytics(container) {
     renderAllCharts();
 }
 
+async function renderFeedback(container) {
+    container.innerHTML = `
+        <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
+            <div id="feedback-table-body" class="divide-y divide-border"></div>
+        </div>
+    `;
+
+    const loadFeedback = async () => {
+        const { data, error } = await supabase
+            .from('feedback')
+            .select('*, customers(name)')
+            .order('created_at', { ascending: false });
+
+        const tableBody = $('#feedback-table-body');
+        if (!tableBody) return;
+
+        if (error) {
+            tableBody.innerHTML = `<p class="text-destructive p-4 text-center">Error: ${error.message}</p>`;
+            return;
+        }
+
+        const ratingToStars = (rating) => '★'.repeat(rating) + '☆'.repeat(5 - rating);
+
+        tableBody.innerHTML = data.length === 0
+            ? `<p class="text-muted-foreground p-4 text-center">No feedback has been submitted yet.</p>`
+            : data.map(item => `
+                <div class="p-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-semibold">${item.customers?.name || 'Anonymous'}</p>
+                            <p class="text-sm text-yellow-500">${ratingToStars(item.rating)}</p>
+                        </div>
+                        <button class="delete-feedback-btn text-red-500 hover:underline text-xs" data-id="${item.id}">Delete</button>
+                    </div>
+                    <p class="text-sm text-muted-foreground mt-2">${item.content || 'No comment'}</p>
+                    <p class="text-xs text-muted-foreground mt-2">${new Date(item.created_at).toLocaleString()}</p>
+                </div>
+            `).join('');
+    };
+
+    await loadFeedback();
+
+    container.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('delete-feedback-btn')) {
+            const id = e.target.dataset.id;
+            const confirmed = await showConfirmation('Delete Feedback?', 'Are you sure you want to delete this feedback entry?');
+            if (confirmed) {
+                const { error } = await supabase.from('feedback').delete().eq('id', id);
+                if (error) {
+                    showToast(`Error: ${error.message}`, true);
+                } else {
+                    showToast('Feedback deleted.');
+                    loadFeedback();
+                }
+            }
+        }
+    });
+}
+
+
 async function renderReports(container) {
     container.innerHTML = `
          <div class="max-w-2xl mx-auto bg-card p-8 rounded-lg shadow-sm border border-border">
@@ -976,36 +937,103 @@ async function renderReports(container) {
 
             if (error) {
                 showToast('Error fetching report data.', true);
+                console.error("Report Error:", error);
                 return;
             }
             
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "OrderID,Timestamp,Table,ItemName,Category,Quantity,Price,Total\n";
+            const escapeCsvField = (field) => {
+                const str = String(field === null || field === undefined ? '' : field);
+                return `"${str.replace(/"/g, '""')}"`;
+            };
+
+            let csvContent = "OrderID,Timestamp,Table,ItemName,Category,Quantity,Price,Total\n";
             
             data.forEach(order => {
                 order.order_items.forEach(item => {
                     const row = [
-                        order.id,
-                        order.created_at,
-                        order.tables.table_number,
-                        item.products.name,
-                        item.products.category,
-                        item.quantity,
-                        item.products.price,
-                        item.quantity * item.products.price
+                        escapeCsvField(order.id),
+                        escapeCsvField(order.created_at),
+                        escapeCsvField(order.tables?.table_number),
+                        escapeCsvField(item.products?.name),
+                        escapeCsvField(item.products?.category),
+                        escapeCsvField(item.quantity),
+                        escapeCsvField(item.products?.price),
+                        escapeCsvField(item.quantity * (item.products?.price || 0))
                     ].join(",");
                     csvContent += row + "\n";
                 });
             });
 
-            const encodedUri = encodeURI(csvContent);
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `sales_report_${range}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `sales_report_${range}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
         });
+    });
+}
+
+function renderQrCodes(container) {
+    container.innerHTML = `
+        <div class="max-w-md mx-auto bg-card p-8 rounded-lg shadow-sm border border-border">
+            <h3 class="text-lg font-semibold text-center mb-1">Generate Table QR Code</h3>
+            <p class="text-center text-muted-foreground text-sm mb-4">Enter a table number to generate a unique QR code for your customer-facing menu.</p>
+            <div class="flex space-x-2">
+                <input type="number" id="table-number-input" placeholder="Enter table number" class="w-full p-2 bg-secondary rounded-md border border-border">
+                <button id="generate-qr-btn" class="bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium">Generate</button>
+            </div>
+            <div id="qrcode-container" class="mt-6 flex flex-col items-center justify-center bg-secondary p-4 rounded-lg hidden">
+                <h4 id="qr-title" class="font-semibold mb-2"></h4>
+                <div id="qrcode" class="bg-white p-4 rounded-md"></div>
+                 <button id="print-qr-btn" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm">Print QR Code</button>
+            </div>
+        </div>
+    `;
+
+    $('#generate-qr-btn').addEventListener('click', () => {
+        const tableNumber = $('#table-number-input').value;
+        if (!tableNumber) {
+            showToast('Please enter a table number.', true);
+            return;
+        }
+        
+        const url = `https://hxouse1.onrender.com/?table=${tableNumber}`;
+        const qrcodeContainer = $('#qrcode');
+        qrcodeContainer.innerHTML = '';
+        
+        try {
+            const qr = qrcode(0, 'L');
+            qr.addData(url);
+            qr.make();
+            qrcodeContainer.innerHTML = qr.createImgTag(6, 8);
+            
+            $('#qr-title').textContent = `QR Code for Table #${tableNumber}`;
+            $('#qrcode-container').classList.remove('hidden');
+        } catch(e) {
+            showToast('Error generating QR code.', true);
+            console.error(e);
+        }
+    });
+
+    $('#print-qr-btn').addEventListener('click', () => {
+        const qrTitle = $('#qr-title').textContent;
+        const qrImage = $('#qrcode').innerHTML;
+        const printContent = `
+            <div style="text-align: center; font-family: sans-serif; padding-top: 50px;">
+                <h2 style="font-size: 24px; margin-bottom: 20px;">${qrTitle}</h2>
+                ${qrImage.replace('<img', '<img style="width: 200px; height: 200px;"')}
+            </div>
+        `;
+        const printContainer = $('#printable-area');
+        printContainer.innerHTML = printContent;
+        window.print();
+        printContainer.innerHTML = ''; // Clear after printing
     });
 }
 
@@ -1068,7 +1096,110 @@ async function renderSettings(container) {
 }
 
 // =================================================================================
-//  SECTION 4: UTILITIES (Printing, Charts, etc.)
+//  SECTION: SETUP & CONFIGURATION
+// =================================================================================
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => document.querySelectorAll(selector);
+
+const SUPABASE_URL = 'https://ttdnlatylcqrevzlyrru.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0ZG5sYXR5bGNxcmV2emx5cnJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxNzAyMDEsImV4cCI6MjA3NTc0NjIwMX0.aiQ1_viA1JrugEyMWxA2e5f2Aqrao9BNgCTb70NWyCc';
+const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const state = {
+    currentPage: 'dashboard',
+    user: null,
+    confirmPromise: null,
+    audioInitialized: false,
+};
+
+const INVOICE_DETAILS = { name: "HXOUSE COFFEE CO", address: "SM TOWER BABA MARKET DCM VAISHALI NAGAR JAIPUR", gstin: "", phone: "", footer: "THANKYOU FOR VISITING" };
+
+const ICONS = {
+    dashboard: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>`,
+    take_order: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`,
+    orders: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`,
+    menu: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M2 6h20M2 18h20"/></svg>`,
+    customers: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    staff_calls: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+    analytics: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8a5 5 0 0 1-6.4 0l-4.3 4.3a5 5 0 0 1-6.4 0"/><path d="M12.3 19.3a5 5 0 0 1-6.4 0"/><path d="M22 3a5 5 0 0 1-6.4 0"/></svg>`,
+    feedback: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>`,
+    reports: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`,
+    qr_codes: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>`,
+    settings: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+};
+
+const PAGES = {
+    dashboard: { title: "Dashboard", icon: ICONS.dashboard, render: renderDashboard },
+    take_order: { title: "Take Order", icon: ICONS.take_order, render: renderTakeOrder },
+    orders: { title: "Orders", icon: ICONS.orders, render: renderOrders },
+    menu: { title: "Menu", icon: ICONS.menu, render: renderMenu },
+    customers: { title: "Customers", icon: ICONS.customers, render: renderCustomers },
+    staff_calls: { title: "Staff Calls", icon: ICONS.staff_calls, render: renderStaffCalls },
+    analytics: { title: "Analytics", icon: ICONS.analytics, render: renderAnalytics },
+    feedback: { title: "Feedback", icon: ICONS.feedback, render: renderFeedback },
+    reports: { title: "Reports", icon: ICONS.reports, render: renderReports },
+    qr_codes: { title: "QR Codes", icon: ICONS.qr_codes, render: renderQrCodes },
+    settings: { title: "Settings", icon: ICONS.settings, render: renderSettings },
+};
+
+// =================================================================================
+//  SECTION: CORE LOGIC & NAVIGATION
+// =================================================================================
+
+function navigateTo(page) {
+    if (!PAGES[page]) {
+        console.error(`Page "${page}" does not exist.`);
+        return;
+    }
+    state.currentPage = page;
+    render();
+}
+
+function render() {
+    const navContainer = $('#sidebar-nav');
+    navContainer.innerHTML = Object.keys(PAGES).map(key => {
+        const page = PAGES[key];
+        const isActive = state.currentPage === key;
+        return `
+            <button onclick="navigateTo('${key}')" class="w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-secondary-foreground'}">
+                ${page.icon}
+                ${page.title}
+            </button>
+        `;
+    }).join('');
+
+    const pageContent = $('#page-content');
+    const pageTitle = $('#page-title');
+    pageContent.innerHTML = '<div class="text-center text-muted-foreground p-8">Loading...</div>';
+    pageTitle.textContent = PAGES[state.currentPage].title;
+    
+    pageContent.classList.remove('fade-in');
+    void pageContent.offsetWidth; 
+    pageContent.classList.add('fade-in');
+
+    PAGES[state.currentPage].render(pageContent);
+}
+
+function showToast(message, isError = false) {
+    const toast = $('#toast'), p = $('#toast-message');
+    p.textContent = message;
+    toast.className = `fixed bottom-5 right-5 text-primary-foreground py-2 px-4 rounded-lg shadow-lg text-sm z-[200] ${isError ? 'bg-destructive' : 'bg-primary'}`;
+    toast.classList.remove('hidden');
+    setTimeout(() => { toast.classList.add('hidden'); }, 3000);
+}
+
+async function showConfirmation(title, message) {
+    $('#confirm-title').textContent = title;
+    $('#confirm-message').textContent = message;
+    $('#confirm-modal').classList.remove('hidden');
+    
+    return new Promise((resolve) => {
+        state.confirmPromise = resolve;
+    });
+}
+
+// =================================================================================
+//  SECTION: UTILITIES & NOTIFICATIONS
 // =================================================================================
 
 function printKOT(items, tableNumber, specialInstructions, orderId = null) {
@@ -1200,9 +1331,46 @@ async function renderAllCharts() {
     if ($('#peakTimesChart')) new Chart($('#peakTimesChart'), { type: 'bar', data: { labels: hours.map(h => `${h}:00`), datasets: [{ label: 'Number of Orders', data: hours.map(h => ordersByHour[h] || 0), backgroundColor: '#f97316' }] }, options: { responsive: true } });
 }
 
+function initializeAudio() {
+    if (state.audioInitialized) return;
+    const audio = $('#notification-sound');
+    // A small hack to get audio to play on user interaction
+    const promise = audio.play();
+    if (promise !== undefined) {
+        promise.then(_ => {
+            audio.pause();
+            state.audioInitialized = true;
+            showToast('Sound notifications enabled!');
+            const audioPrompt = $('#audio-prompt');
+            if(audioPrompt) audioPrompt.style.display = 'none';
+        }).catch(error => {
+            console.warn("Audio could not be initialized automatically.", error);
+        });
+    }
+}
+
+function playAlarm() {
+    if (!state.audioInitialized) {
+        console.warn("Audio not initialized. Cannot play alarm.");
+        return;
+    };
+    const audio = $('#notification-sound');
+    audio.currentTime = 0;
+    audio.play().catch(e => console.error("Could not play alarm:", e));
+}
+
+function showAlert(content) {
+    playAlarm();
+    $('#alert-modal-content').innerHTML = content;
+    $('#alert-modal').classList.remove('hidden');
+}
+
+function hideAlert() {
+    $('#alert-modal').classList.add('hidden');
+}
 
 // =================================================================================
-//  SECTION 5: INITIALIZATION & REALTIME LISTENERS
+//  SECTION: INITIALIZATION & REALTIME LISTENERS
 // =================================================================================
 
 function applyTheme(theme) {
@@ -1227,6 +1395,8 @@ async function initializeApp() {
     $('#user-email').textContent = state.user.email;
     applyTheme(localStorage.getItem('theme') || 'light');
     
+    document.body.addEventListener('click', initializeAudio, { once: true });
+
     $('#theme-toggle').addEventListener('click', () => applyTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark'));
     $('#logout-btn').addEventListener('click', async () => { await supabase.auth.signOut(); window.location.reload(); });
     
@@ -1234,14 +1404,46 @@ async function initializeApp() {
     $('#confirm-ok-btn').addEventListener('click', () => { $('#confirm-modal').classList.add('hidden'); if (state.confirmPromise) state.confirmPromise(true); });
 
     supabase.channel('public-changes')
-        .on('postgres_changes', { event: '*', schema: 'public' }, payload => {
+        .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
             console.log('Realtime Event:', payload);
-            const page = state.currentPage;
-            if (page === 'dashboard') renderDashboard($('#page-content'));
-            if ((page === 'orders' && payload.table === 'orders') || (page === 'orders' && payload.table === 'order_items')) PAGES.orders.render($('#page-content'));
-            if (page === 'menu' && payload.table === 'products') PAGES.menu.render($('#page-content'));
-            if (page === 'staff_calls' && payload.table === 'staff_calls') PAGES.staff_calls.render($('#page-content'));
-            if (page === 'analytics') renderAllCharts();
+
+            // Live dashboard updates
+            if (state.currentPage === 'dashboard') {
+                if(payload.table === 'orders') {
+                     renderDashboard($('#page-content'));
+                }
+                 if(payload.table === 'staff_calls') {
+                    renderDashboard($('#page-content'));
+                }
+            }
+
+            // Page-specific re-renders for data consistency
+            if (state.currentPage === 'orders' && payload.table === 'orders') renderOrders($('#page-content'));
+            if (state.currentPage === 'menu' && payload.table === 'products') renderMenu($('#page-content'));
+            if (state.currentPage === 'staff_calls' && payload.table === 'staff_calls') renderStaffCalls($('#page-content'));
+            if (state.currentPage === 'customers' && payload.table === 'customers') renderCustomers($('#page-content'));
+            if (state.currentPage === 'feedback' && payload.table === 'feedback') renderFeedback($('#page-content'));
+            if (state.currentPage === 'analytics') renderAllCharts();
+
+            // Real-time notifications for new inserts
+            if (payload.eventType === 'INSERT') {
+                if (payload.table === 'orders') {
+                    const { data } = await supabase.from('tables').select('table_number').eq('id', payload.new.table_id).single();
+                    showAlert(`
+                        <h2 class="text-3xl font-bold text-blue-500 mb-4">New Order!</h2>
+                        <p class="text-lg text-muted-foreground mb-6">Received for Table #${data?.table_number || 'N/A'}</p>
+                        <button onclick="hideAlert()" class="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge</button>
+                    `);
+                }
+                if (payload.table === 'staff_calls' && payload.new.status === 'pending') {
+                     const { data } = await supabase.from('tables').select('table_number').eq('id', payload.new.table_id).single();
+                    showAlert(`
+                        <h2 class="text-3xl font-bold text-orange-500 mb-4">Staff Call!</h2>
+                        <p class="text-lg text-muted-foreground mb-6">From Table #${data?.table_number || 'N/A'}</p>
+                        <button onclick="hideAlert()" class="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge</button>
+                    `);
+                }
+            }
         })
         .subscribe();
 

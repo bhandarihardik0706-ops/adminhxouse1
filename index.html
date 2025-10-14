@@ -1237,7 +1237,7 @@ function printKOT(items, tableNumber, specialInstructions, orderId = null) {
     });
 
     const content = `
-        <div style="font-family: 'Courier New', monospace; font-size: 12px; width: 280px; padding: 10px;">
+        <div style="font-family: 'Courier New', monospace; font-size: 14px; width: 280px; padding: 10px; font-weight: bold; color: black;">
             <p>Running Table</p>
             <p>${now.toLocaleDateString()} ${now.toLocaleTimeString()}</p>
             <p>KOT - ${kotId}</p>
@@ -1282,7 +1282,7 @@ function printBill(items, tableNumber, orderId = null) {
     `).join('');
 
     const content = `
-        <div style="font-family: 'Courier New', monospace; font-size: 12px; width: 280px; padding: 10px; text-align: center;">
+        <div style="font-family: 'Courier New', monospace; font-size: 14px; width: 280px; padding: 10px; text-align: center; font-weight: bold; color: black;">
             <h3 style="font-size: 16px; margin: 0;">${INVOICE_DETAILS.name}</h3>
             <p style="margin: 2px 0;">${INVOICE_DETAILS.address}</p>
             ${INVOICE_DETAILS.phone ? `<p style="margin: 2px 0;">Ph: ${INVOICE_DETAILS.phone}</p>` : ''}

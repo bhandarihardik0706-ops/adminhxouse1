@@ -309,9 +309,13 @@ async function renderPosForTable(tableNumber) {
                         <div class="flex justify-between"><p>GST (5%)</p><p id="cart-gst">₹0.00</p></div>
                         <div class="flex justify-between font-bold text-base"><p>Total</p><p id="cart-total">₹0.00</p></div>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button id="save-kot-btn" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50" disabled>Save & KOT</button>
-                        <button id="print-bill-btn" class="w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50" disabled>Print Bill</button>
+                     <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <button id="save-kot-btn" class="md:col-span-3 w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50" disabled>Save & KOT</button>
+                        <button id="print-bill-btn" class="md:col-span-1 w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50" disabled>Print Bill</button>
+                        <button id="whatsapp-bill-btn" class="w-full bg-teal-500 text-white font-semibold py-3 px-4 rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50 md:col-span-2" disabled>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block -mt-1 mr-1" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.651 4.383 1.89 6.22l-1.2 4.419 4.555-1.196z M16.55 14.505c-.074-.125-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.5-.669-.51s-.371-.012-.57-.012c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                            WhatsApp
+                        </button>
                     </div>
                 </div>
             </div>
@@ -327,11 +331,13 @@ async function renderPosForTable(tableNumber) {
         const cartItemsContainer = $('#cart-items');
         const saveKotBtn = $('#save-kot-btn');
         const printBillBtn = $('#print-bill-btn');
+        const whatsappBillBtn = $('#whatsapp-bill-btn');
 
         if (cart.length === 0) {
             cartItemsContainer.innerHTML = `<p class="text-muted-foreground text-center pt-8">No items added yet.</p>`;
             saveKotBtn.disabled = true;
             printBillBtn.disabled = true;
+            if(whatsappBillBtn) whatsappBillBtn.disabled = true;
         } else {
             cartItemsContainer.innerHTML = cart.map((item, index) => `
                 <div class="flex items-center bg-secondary p-2 rounded-md">
@@ -348,6 +354,7 @@ async function renderPosForTable(tableNumber) {
             `).join('');
             saveKotBtn.disabled = false;
             printBillBtn.disabled = false;
+            if(whatsappBillBtn) whatsappBillBtn.disabled = false;
         }
 
         const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -478,12 +485,31 @@ async function renderPosForTable(tableNumber) {
     $('#print-bill-btn').addEventListener('click', async () => {
         printBill(cart, tableNumber);
     });
+
+    $('#whatsapp-bill-btn').addEventListener('click', () => {
+        sendBillViaWhatsApp(cart, tableNumber);
+    });
     
     await loadCategories();
     await loadAndRenderMenu();
     updateCartView();
 }
 
+function suggestEmoji(name) {
+    const lowerCaseName = name.toLowerCase();
+    const emojiMap = {
+        coffee: '☕', tea: '🍵', juice: '🧃', shake: '🥤', smoothie: '🍹',
+        sandwich: '🥪', burger: '🍔', pizza: '🍕', fries: '🍟', pasta: '🍝',
+        salad: '🥗', soup: '🥣', cake: '🍰', pastry: '🥐', cookie: '🍪',
+        icecream: '🍨', mojito: '🍹', water: '💧'
+    };
+    for (const keyword in emojiMap) {
+        if (lowerCaseName.includes(keyword)) {
+            return emojiMap[keyword];
+        }
+    }
+    return '🍽️'; // Default emoji
+}
 
 async function renderMenu(container) {
     container.innerHTML = `
@@ -491,9 +517,7 @@ async function renderMenu(container) {
             <h3 class="text-lg font-semibold">Menu Items</h3>
             <button id="add-item-btn" class="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">Add New Item</button>
         </div>
-        <div class="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
-            <div id="menu-table-body"></div>
-        </div>
+        <div id="menu-list-container" class="space-y-8"></div>
         <div id="menu-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div class="bg-card rounded-lg shadow-xl p-6 w-full max-w-md">
                 <h3 id="modal-title" class="text-lg font-semibold mb-4">Add Menu Item</h3>
@@ -505,7 +529,10 @@ async function renderMenu(container) {
                     </div>
                     <div>
                         <label class="text-sm font-medium">Emoji</label>
-                        <input type="text" id="item-emoji" placeholder="e.g., 🍔" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border">
+                        <div class="flex items-center space-x-2">
+                           <input type="text" id="item-emoji" placeholder="e.g., 🍔" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border">
+                           <button type="button" id="suggest-emoji-btn" class="mt-1 px-3 py-2 bg-secondary rounded-md text-sm hover:bg-muted">Suggest</button>
+                        </div>
                     </div>
                     <div>
                         <label class="text-sm font-medium">Category</label>
@@ -533,44 +560,56 @@ async function renderMenu(container) {
     `;
 
     const loadMenu = async () => {
-        const { data: products, error } = await supabase.from('products').select('*').order('category').order('name');
+        const { data: products, error } = await supabase.from('products').select('*').order('name');
         
         if (state.currentPage !== 'menu') return;
-        const tableBody = $('#menu-table-body');
+        const listContainer = $('#menu-list-container');
 
         if (error) {
             showToast(`Failed to load menu: ${error.message}`, true);
-            tableBody.innerHTML = `<p class="text-center text-destructive p-4">Error: ${error.message}</p>`;
+            listContainer.innerHTML = `<p class="text-center text-destructive p-4">Error: ${error.message}</p>`;
             return;
         }
 
-        tableBody.innerHTML = `
-            <table class="w-full text-sm text-left">
-                <thead class="bg-secondary">
-                    <tr>
-                        <th class="p-4 font-semibold">Name</th>
-                        <th class="p-4 font-semibold">Category</th>
-                        <th class="p-4 font-semibold">Price</th>
-                        <th class="p-4 font-semibold">Available</th>
-                        <th class="p-4 font-semibold">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${products.map(item => `
-                        <tr class="border-b border-border">
-                            <td class="p-4 font-medium">${item.image_url || ''} ${item.name}</td>
-                            <td class="p-4 text-muted-foreground">${item.category}</td>
-                            <td class="p-4 text-muted-foreground">₹${item.price}</td>
-                            <td class="p-4"><span class="px-2 py-1 text-xs rounded-full ${item.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${item.is_available ? 'Yes' : 'No'}</span></td>
-                            <td class="p-4 space-x-2">
-                                <button class="edit-item-btn text-blue-600 hover:underline" data-id="${item.id}">Edit</button>
-                                <button class="delete-item-btn text-red-600 hover:underline" data-id="${item.id}">Delete</button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
+        const categorizedMenu = products.reduce((acc, product) => {
+            const category = product.category || 'Uncategorized';
+            if (!acc[category]) {
+                acc[category] = [];
+            }
+            acc[category].push(product);
+            return acc;
+        }, {});
+
+        listContainer.innerHTML = Object.keys(categorizedMenu).sort().map(category => `
+            <div>
+                <h3 class="text-xl font-bold mb-3 text-card-foreground border-b border-border pb-2">${category}</h3>
+                <div class="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-secondary">
+                            <tr>
+                                <th class="p-4 font-semibold">Name</th>
+                                <th class="p-4 font-semibold">Price</th>
+                                <th class="p-4 font-semibold">Available</th>
+                                <th class="p-4 font-semibold">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${categorizedMenu[category].map(item => `
+                                <tr class="border-b border-border last:border-b-0">
+                                    <td class="p-4 font-medium">${item.image_url || ''} ${item.name}</td>
+                                    <td class="p-4 text-muted-foreground">₹${item.price}</td>
+                                    <td class="p-4"><span class="px-2 py-1 text-xs rounded-full ${item.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${item.is_available ? 'Yes' : 'No'}</span></td>
+                                    <td class="p-4 space-x-2">
+                                        <button class="edit-item-btn text-blue-600 hover:underline" data-id="${item.id}">Edit</button>
+                                        <button class="delete-item-btn text-red-600 hover:underline" data-id="${item.id}">Delete</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `).join('');
     };
 
     const openModal = (item = null) => {
@@ -591,6 +630,26 @@ async function renderMenu(container) {
 
     $('#add-item-btn').addEventListener('click', () => openModal());
     $('#cancel-btn').addEventListener('click', closeModal);
+
+    const suggestAndSetEmoji = () => {
+        const name = $('#item-name').value;
+        if (!name) return;
+        const emoji = suggestEmoji(name);
+        if (emoji && !$('#item-emoji').value) { // Only suggest if field is empty
+             $('#item-emoji').value = emoji;
+        }
+    };
+
+    $('#suggest-emoji-btn').addEventListener('click', () => {
+        const name = $('#item-name').value;
+        if (!name) return;
+        const emoji = suggestEmoji(name);
+        if (emoji) {
+            $('#item-emoji').value = emoji;
+        }
+    });
+    $('#item-name').addEventListener('blur', suggestAndSetEmoji);
+
 
     $('#menu-item-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -662,7 +721,7 @@ async function renderOrders(container) {
     `;
 
     const loadOrders = async () => {
-        const { data, error } = await supabase.from('orders').select('*, customers(name), tables(table_number)').order('created_at', { ascending: false }).limit(100);
+        const { data, error } = await supabase.from('orders').select('*, customers(name, whatsapp_number), tables(table_number)').order('created_at', { ascending: false }).limit(100);
         
         const tableBody = $('#orders-table-body');
         if (!tableBody) return;
@@ -708,7 +767,7 @@ async function renderOrders(container) {
 
     container.addEventListener('click', async (e) => {
         if (e.target.classList.contains('view-order-btn')) {
-            const { data: order, error } = await supabase.from('orders').select('*, tables(table_number), order_items(*, products(*))').eq('id', e.target.dataset.id).single();
+            const { data: order, error } = await supabase.from('orders').select('*, tables(table_number), customers(whatsapp_number), order_items(*, products(*))').eq('id', e.target.dataset.id).single();
             if(error) { showToast('Could not fetch order details', true); return; }
             
             const modal = $('#order-detail-modal');
@@ -727,11 +786,20 @@ async function renderOrders(container) {
                     <div class="flex justify-end space-x-2 mt-4">
                         <button class="print-kot-modal-btn bg-blue-600 text-white px-4 py-2 text-sm rounded-lg">Print KOT</button>
                         <button class="print-bill-modal-btn bg-green-600 text-white px-4 py-2 text-sm rounded-lg">Print Bill</button>
+                        <button class="whatsapp-bill-modal-btn bg-teal-500 text-white px-4 py-2 text-sm rounded-lg">WhatsApp Bill</button>
                     </div>
                 </div>
             `;
             modal.querySelector('.print-kot-modal-btn').onclick = () => printKOT(order.order_items.map(oi => ({name: oi.products.name, quantity: oi.quantity})), order.tables.table_number, order.special_instructions, order.id);
             modal.querySelector('.print-bill-modal-btn').onclick = () => printBill(order.order_items.map(oi => ({name: oi.products.name, price: oi.price_at_time_of_order, quantity: oi.quantity})), order.tables.table_number, order.id);
+            modal.querySelector('.whatsapp-bill-modal-btn').onclick = () => {
+                const itemsForBill = order.order_items.map(oi => ({
+                    name: oi.products?.name || '[Deleted]', 
+                    price: oi.price_at_time_of_order, 
+                    quantity: oi.quantity
+                }));
+                sendBillViaWhatsApp(itemsForBill, order.tables.table_number, order.id, order.customers?.whatsapp_number);
+            };
             modal.classList.remove('hidden');
         }
     });
@@ -1311,6 +1379,80 @@ function printBill(items, tableNumber, orderId = null) {
     printContainer.classList.add('hidden');
 }
 
+function formatBillForWhatsApp(items, tableNumber, orderId = null) {
+    const now = new Date();
+    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const gst = subtotal * 0.05;
+    const total = subtotal + gst;
+
+    let message = `*${INVOICE_DETAILS.name}*\n\n`;
+    message += `*Bill Receipt*\n`;
+    message += `-----------------------------------\n`;
+    if (orderId) message += `Order ID: ${orderId.slice(0, 8)}\n`;
+    message += `Table: #${tableNumber}\n`;
+    message += `Date: ${now.toLocaleString()}\n`;
+    message += `-----------------------------------\n\n`;
+
+    message += '*Items:*\n';
+    items.forEach(item => {
+        message += `${item.quantity} x ${item.name} - ₹${(item.price * item.quantity).toFixed(2)}\n`;
+    });
+    message += `\n-----------------------------------\n`;
+    message += `Subtotal: ₹${subtotal.toFixed(2)}\n`;
+    message += `GST (5%): ₹${gst.toFixed(2)}\n`;
+    message += `*Total: ₹${total.toFixed(2)}*\n`;
+    message += `-----------------------------------\n\n`;
+    message += `_${INVOICE_DETAILS.footer}_`;
+
+    return encodeURIComponent(message);
+}
+
+function promptForPhoneNumber() {
+    return new Promise(resolve => {
+        const content = `
+            <h3 class="text-lg font-semibold mb-4">Enter Customer's WhatsApp Number</h3>
+            <p class="text-sm text-muted-foreground mb-4">Please include the country code (e.g., 91 for India).</p>
+            <input type="tel" id="whatsapp-number-input" placeholder="e.g., 919876543210" class="w-full p-2 bg-secondary rounded-md border border-border mb-4">
+            <div class="flex justify-end space-x-2">
+                <button id="whatsapp-cancel-btn" class="bg-secondary text-secondary-foreground px-4 py-2 rounded-lg text-sm">Cancel</button>
+                <button id="whatsapp-confirm-btn" class="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm">Send</button>
+            </div>
+        `;
+        showPrompt(content);
+
+        $('#whatsapp-cancel-btn').onclick = () => {
+            hideAlert();
+            resolve(null);
+        };
+
+        $('#whatsapp-confirm-btn').onclick = () => {
+            const phoneNumber = $('#whatsapp-number-input').value;
+            // A simple regex to check for numbers, maybe with a leading +
+            if (phoneNumber && /^\+?\d{10,15}$/.test(phoneNumber)) {
+                hideAlert();
+                resolve(phoneNumber.replace('+', '')); // Ensure no +
+            } else {
+                showToast('Please enter a valid number with country code.', true);
+            }
+        };
+    });
+}
+
+async function sendBillViaWhatsApp(items, tableNumber, orderId = null, customerPhoneNumber = null) {
+    let phoneNumber = customerPhoneNumber;
+
+    if (!phoneNumber) {
+        phoneNumber = await promptForPhoneNumber();
+    }
+
+    if (phoneNumber) {
+        const message = formatBillForWhatsApp(items, tableNumber, orderId);
+        const url = `https://wa.me/${phoneNumber}?text=${message}`;
+        window.open(url, '_blank');
+        showToast('Redirecting to WhatsApp...');
+    }
+}
+
 
 async function renderAllCharts() {
     // This function can be optimized by fetching data once
@@ -1386,6 +1528,11 @@ function playAlarm() {
 
 function showAlert(content) {
     playAlarm();
+    $('#alert-modal-content').innerHTML = content;
+    $('#alert-modal').classList.remove('hidden');
+}
+
+function showPrompt(content) {
     $('#alert-modal-content').innerHTML = content;
     $('#alert-modal').classList.remove('hidden');
 }

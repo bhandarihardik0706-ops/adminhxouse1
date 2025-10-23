@@ -91,6 +91,41 @@
         }
         /* MODIFICATION END */
     </style>
+    
+    <!-- MODIFICATION: Add print-specific styles for KOT/Bill -->
+    <style id="print-styles">
+        @media print {
+            /* Reset default print margins and headers/footers */
+            @page {
+                size: auto; /* Let the printer auto-detect paper size */
+                margin: 0mm; /* No browser margins */
+            }
+            body, html {
+                margin: 0;
+                padding: 0;
+                background: #fff; /* Ensure white background for printing */
+            }
+            /* Hide everything except the printable area */
+            body > *:not(#printable-area) {
+                display: none;
+            }
+            #printable-area, #printable-area * {
+                visibility: visible;
+            }
+            #printable-area {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 3mm; /* Small padding from the paper edge */
+                box-shadow: none;
+                border: none;
+            }
+        }
+    </style>
+    <!-- MODIFICATION END -->
+    
 </head>
 <body class="antialiased">
     <!-- Login Screen -->
@@ -1506,27 +1541,26 @@ function printKOT(items, tableNumber, specialInstructions, orderId = null) {
     items.forEach(item => {
         itemsHtml += `
             <tr>
-                <td style="vertical-align: top;">${item.name}</td>
-                <td style="vertical-align: top;">--</td>
+                <td style="vertical-align: top; padding-right: 5px;">${item.name}</td>
                 <td style="vertical-align: top; text-align: center;">${item.quantity}</td>
             </tr>
         `;
     });
 
+    // MODIFICATION: Reduced font sizes, removed fixed width, added max-width, tightened margins
     const content = `
-        <div style="font-family: 'Courier New', monospace; font-size: 14px; width: 280px; padding: 10px; font-weight: bold; color: black;">
-            <p>Running Table</p>
-            <p>${now.toLocaleDateString()} ${now.toLocaleTimeString()}</p>
-            <p>KOT - ${kotId}</p>
-            <p>Dine In</p>
-            <p>Table No: T-${tableNumber}</p>
-            <p>Biller: ${state.user?.email || 'Admin'}</p>
+        <div style="font-family: 'Courier New', monospace; font-size: 10px; max-width: 80mm; font-weight: bold; color: black; line-height: 1.4;">
+            <p style="font-size: 12px; margin: 1px 0;">Running Table</p>
+            <p style="margin: 1px 0;">${now.toLocaleDateString()} ${now.toLocaleTimeString()}</p>
+            <p style="margin: 1px 0;">KOT - ${kotId}</p>
+            <p style="margin: 1px 0;">Dine In</p>
+            <p style="font-size: 14px; margin: 2px 0;">Table No: T-${tableNumber}</p>
+            <p style="margin: 1px 0;">Biller: ${state.user?.email || 'Admin'}</p>
             <hr style="border-top: 1px dashed black; margin: 5px 0;">
-            <table style="width: 100%; border-collapse: collapse;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
                 <thead>
                     <tr>
                         <th style="text-align: left;">Item</th>
-                        <th style="text-align: left;">Special Note</th>
                         <th style="text-align: center;">Qty.</th>
                     </tr>
                 </thead>
@@ -1535,7 +1569,7 @@ function printKOT(items, tableNumber, specialInstructions, orderId = null) {
                 </tbody>
             </table>
             <hr style="border-top: 1px dashed black; margin: 5px 0;">
-             ${specialInstructions ? `<p><strong>Note:</strong> ${specialInstructions}</p>` : ''}
+             ${specialInstructions ? `<p style="font-size: 12px; margin: 2px 0;"><strong>Note:</strong> ${specialInstructions}</p>` : ''}
         </div>
     `;
     printContainer.innerHTML = content;
@@ -1558,22 +1592,23 @@ function printBill(items, tableNumber, orderId = null) {
         </tr>
     `).join('');
 
+    // MODIFICATION: Set base font-size to 12px, removed fixed width, added max-width, tightened margins
     const content = `
-        <div style="font-family: 'Courier New', monospace; font-size: 14px; width: 280px; padding: 10px; text-align: center; font-weight: bold; color: black;">
+        <div style="font-family: 'Courier New', monospace; font-size: 12px; max-width: 80mm; text-align: center; font-weight: bold; color: black; line-height: 1.4;">
             <h3 style="font-size: 16px; margin: 0;">${INVOICE_DETAILS.name}</h3>
             <p style="margin: 2px 0;">${INVOICE_DETAILS.address}</p>
             ${INVOICE_DETAILS.phone ? `<p style="margin: 2px 0;">Ph: ${INVOICE_DETAILS.phone}</p>` : ''}
             ${INVOICE_DETAILS.gstin ? `<p style="margin: 2px 0;">GSTIN: ${INVOICE_DETAILS.gstin}</p>` : ''}
             <hr style="border-top: 1px dashed black; margin: 5px 0;">
-            <p>Date: ${now.toLocaleString()}</p>
-            <p>Table: #${tableNumber}</p>
-            ${orderId ? `<p>Order ID: ${orderId.slice(0, 8)}</p>` : ''}
+            <p style="margin: 2px 0;">Date: ${now.toLocaleString()}</p>
+            <p style="font-size: 14px; margin: 2px 0;">Table: #${tableNumber}</p>
+            ${orderId ? `<p style="margin: 2px 0;">Order ID: ${orderId.slice(0, 8)}</p>` : ''}
             <hr style="border-top: 1px dashed black; margin: 5px 0;">
-            <table style="width: 100%; text-align: left;">
+            <table style="width: 100%; text-align: left; font-size: 12px;">
                 ${itemsHtml}
             </table>
             <hr style="border-top: 1px dashed black; margin: 5px 0;">
-            <table style="width: 100%;">
+            <table style="width: 100%; font-size: 12px;">
                 <tr><td>Subtotal</td><td style="text-align: right;">${subtotal.toFixed(2)}</td></tr>
                 <tr><td>GST (5%)</td><td style="text-align: right;">${gst.toFixed(2)}</td></tr>
                 <tr style="font-weight: bold;"><td>Total</td><td style="text-align: right;">${total.toFixed(2)}</td></tr>
@@ -1883,8 +1918,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
-
-
-
-
 

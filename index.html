@@ -295,7 +295,8 @@ async function renderDashboard(container) {
 }
 
 async function loadLiveOrders() {
-    const { data, error } = await supabase.from('orders').select('*, tables(table_number)').in('status', ['received', 'preparing']).order('created_at', { ascending: true });
+    // MODIFICATION: Added order_items(*, products(name)) to fetch items
+    const { data, error } = await supabase.from('orders').select('*, tables(table_number), order_items(*, products(name))').in('status', ['received', 'preparing']).order('created_at', { ascending: true });
     
     const container = $('#live-orders-container');
     if (!container) return;
@@ -317,6 +318,19 @@ async function loadLiveOrders() {
                     </div>
                     <span class="px-2 py-1 text-xs rounded-full ${order.status === 'received' ? 'bg-blue-200 text-blue-800' : 'bg-yellow-200 text-yellow-800'}">${order.status}</span>
                 </div>
+                <!-- MODIFICATION: Show order items directly on dashboard card -->
+                <div class="mt-2 pt-2 border-t border-border/50 space-y-1">
+                    ${order.order_items && order.order_items.length > 0
+                        ? order.order_items.map(item => `
+                            <div class="flex justify-between text-sm">
+                                <span class="text-card-foreground font-medium">${item.products?.name || '[Deleted]'}</span>
+                                <span class="font-bold text-primary">x ${item.quantity}</span>
+                            </div>
+                        `).join('')
+                        : '<p class="text-sm text-muted-foreground">No items in this order.</p>'
+                    }
+                </div>
+                <!-- MODIFICATION END -->
             </div>
         `).join('');
     }
@@ -1869,6 +1883,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
+
+
 
 
 

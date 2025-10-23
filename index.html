@@ -828,7 +828,8 @@ async function renderOrders(container) {
     `;
 
     const loadOrders = async () => {
-        const { data, error } = await supabase.from('orders').select('*, customers(name, whatsapp_number), tables(table_number)').order('created_at', { ascending: false }).limit(100);
+        // MODIFICATION: Added order_items(*, products(name)) to fetch items for all orders
+        const { data, error } = await supabase.from('orders').select('*, customers(name, whatsapp_number), tables(table_number), order_items(*, products(name))').order('created_at', { ascending: false }).limit(100);
         
         const tableBody = $('#orders-table-body');
         if (!tableBody) return;
@@ -859,6 +860,8 @@ async function renderOrders(container) {
                     <td>${order.source || 'Customer'}</td>
                     <div>
                         <button class="view-order-btn text-blue-600 hover:underline" data-id="${order.id}">View</button>
+                        <!-- MODIFICATION: Added Send to POS button -->
+                        <button class="send-to-pos-btn text-green-600 hover:underline ml-2" data-id="${order.id}">Send to POS</button>
                     </div>
                 </div>
                 <!-- MODIFICATION: Mobile Card View -->
@@ -870,6 +873,21 @@ async function renderOrders(container) {
                         </div>
                         <button class="view-order-btn text-blue-600 hover:underline text-sm font-medium" data-id="${order.id}">View Details</button>
                     </div>
+                    
+                    <!-- MODIFICATION: Show order items directly on mobile card -->
+                    <div class="my-3 space-y-1 border-t border-b border-border py-2">
+                        ${order.order_items && order.order_items.length > 0
+                            ? order.order_items.map(item => `
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-muted-foreground">${item.products?.name || '[Deleted]'}</span>
+                                    <span class="font-medium">x ${item.quantity}</span>
+                                </div>
+                            `).join('')
+                            : '<p class="text-sm text-muted-foreground">No items in this order.</p>'
+                        }
+                    </div>
+                    <!-- MODIFICATION END -->
+                    
                     <div class="flex justify-between items-center mt-3">
                         <p class="font-semibold text-lg">₹${order.total_amount.toFixed(2)}</p>
                         <select class="status-select w-1/2 bg-secondary border-border rounded-md p-1 text-xs" data-id="${order.id}">
@@ -878,6 +896,10 @@ async function renderOrders(container) {
                             <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
                             <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
                         </select>
+                    </div>
+                     <!-- MODIFICATION: Added Send to POS button for mobile -->
+                    <div class="mt-3">
+                         <button class="send-to-pos-btn w-full text-white bg-green-600 rounded-lg py-2 text-sm font-medium" data-id="${order.id}">Send to POS</button>
                     </div>
                 </div>
                 <!-- MODIFICATION END -->
@@ -932,6 +954,27 @@ async function renderOrders(container) {
             };
             modal.classList.remove('hidden');
         }
+        
+        // MODIFICATION: Add event listener for the new "Send to POS" button
+        if (e.target.classList.contains('send-to-pos-btn')) {
+            const orderId = e.target.dataset.id;
+            showToast('Fetching order details for POS...');
+            const { data: order, error } = await supabase.from('orders').select('*, tables(table_number), order_items(*, products(*))').eq('id', orderId).single();
+            
+            if (error || !order) {
+                showToast('Error fetching order details.', true);
+                console.error("POS Send Error:", error);
+                return;
+            }
+
+            const itemsForPooja = order.order_items.map(item => ({
+                name: item.products?.name || '[Deleted]',
+                quantity: item.quantity,
+                price: item.price_at_time_of_order
+            }));
+            
+            redirectToPetPooja(order.id, order.tables.table_number, itemsForPooja, order.total_amount);
+        }
     });
 }
 
@@ -963,7 +1006,9 @@ async function renderStaffCalls(container) {
                    </div>
                    <div class="flex items-center gap-4">
                         <span class="px-2 py-1 text-xs rounded-full ${call.status === 'pending' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'}">${call.status}</span>
-                        ${call.status === 'pending' ? `<button onclick="resolveCall('${call.id}')" class="text-blue-600 hover:underline text-xs">Resolve</button>` : ''}
+                         ${call.status === 'pending' ? `<button onclick="resolveCall('${call.id}')" class="text-blue-600 hover:underline text-xs">Resolve</button>` : ''}
+                        <!-- MODIFICATION: Add delete button -->
+                        <button onclick="deleteCall('${call.id}')" class="text-red-600 hover:underline text-xs">Delete</button>
                    </div>
                 </div>
             `).join('');
@@ -977,6 +1022,24 @@ async function resolveCall(callId) {
     if (error) showToast(`Error: ${error.message}`, true);
     else showToast('Staff call resolved.');
 }
+
+// MODIFICATION: Add new function to delete a staff call
+async function deleteCall(callId) {
+    const confirmed = await showConfirmation('Delete Call?', 'Are you sure you want to permanently delete this staff call? This action cannot be undone.');
+    if (confirmed) {
+        const { error } = await supabase.from('staff_calls').delete().eq('id', callId);
+        if (error) {
+            showToast(`Error deleting call: ${error.message}`, true);
+        } else {
+            showToast('Staff call deleted.');
+            // Reload data on the current page if it's the staff calls page
+            if (state.currentPage === 'staff_calls') {
+                renderStaffCalls($('#page-content'));
+            }
+        }
+    }
+}
+
 
 async function renderCustomers(container) {
     container.innerHTML = `
@@ -1728,18 +1791,39 @@ async function initializeApp() {
             if (payload.eventType === 'INSERT') {
                 if (payload.table === 'orders') {
                     const { data } = await supabase.from('tables').select('table_number').eq('id', payload.new.table_id).single();
+                    // MODIFICATION: Fetch order details for the new order alert
+                    const { data: order, error } = await supabase.from('orders').select('order_items(*, products(name))').eq('id', payload.new.id).single();
+                    
+                    let itemsHtml = '<p class="text-sm text-muted-foreground">Could not load items.</p>';
+                    if (order && order.order_items) {
+                        itemsHtml = order.order_items.map(item => 
+                            `<div class="flex justify-between text-left">
+                                <span class="text-sm">${item.products?.name || '[Item]'}</span>
+                                <span class="text-sm font-medium">x ${item.quantity}</span>
+                            </div>`
+                        ).join('');
+                    }
+
                     showAlert(`
                         <h2 class="text-3xl font-bold text-blue-500 mb-4">New Order!</h2>
-                        <p class="text-lg text-muted-foreground mb-6">Received for Table #${data?.table_number || 'N/A'}</p>
+                        <p class="text-lg text-muted-foreground mb-4">Received for Table #${data?.table_number || 'N/A'}</p>
+                        <div class="bg-secondary rounded-lg p-3 my-4 max-h-48 overflow-y-auto space-y-1">
+                            ${itemsHtml}
+                        </div>
                         <button onclick="hideAlert()" class="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge</button>
                     `);
                 }
                 if (payload.table === 'staff_calls' && payload.new.status === 'pending') {
                      const { data } = await supabase.from('tables').select('table_number').eq('id', payload.new.table_id).single();
+                     const callId = payload.new.id; // Get the ID of the new call
+                    // MODIFICATION: Add Resolve and Delete buttons to the staff call alert
                     showAlert(`
                         <h2 class="text-3xl font-bold text-orange-500 mb-4">Staff Call!</h2>
                         <p class="text-lg text-muted-foreground mb-6">From Table #${data?.table_number || 'N/A'}</p>
-                        <button onclick="hideAlert()" class="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge</button>
+                        <div class="flex justify-center space-x-4">
+                            <button onclick="resolveCall('${callId}'); hideAlert();" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold">Resolve</button>
+                            <button onclick="deleteCall('${callId}'); hideAlert();" class="bg-destructive text-destructive-foreground px-6 py-3 rounded-lg font-bold">Delete</button>
+                        </div>
                     `);
                 }
             }
@@ -1783,3 +1867,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
+
+

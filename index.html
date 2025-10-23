@@ -57,6 +57,39 @@
                 width: 100%;
             }
         }
+        
+        /* MODIFICATION: Mobile Responsive View */
+        @media (max-width: 767px) {
+            aside.w-64 {
+                display: none; /* Hide sidebar on mobile */
+            }
+            main.flex-1 {
+                width: 100%; /* Ensure main takes full width */
+            }
+            /* Hide desktop orders table header */
+            #orders-table-header {
+                display: none;
+            }
+            /* Style for mobile order cards */
+            .mobile-order-card {
+                display: block;
+                padding: 1rem;
+            }
+            /* Hide desktop order rows */
+            .desktop-order-row {
+                display: none;
+            }
+        }
+        /* Show desktop view and hide mobile view on larger screens */
+        @media (min-width: 768px) {
+            .mobile-order-card {
+                display: none;
+            }
+            .desktop-order-row {
+                display: grid; /* Re-show as grid */
+            }
+        }
+        /* MODIFICATION END */
     </style>
 </head>
 <body class="antialiased">
@@ -85,6 +118,7 @@
     <!-- Main App Container -->
     <div id="app-container" class="hidden">
         <div class="flex h-screen bg-background">
+            <!-- Sidebar -->
             <aside class="w-64 flex-shrink-0 bg-card border-r border-border flex flex-col">
                 <div class="h-20 flex items-center justify-center p-4 border-b border-border"><h1 class="text-xl font-bold">HXOUSE CO.</h1></div>
                 <nav id="sidebar-nav" class="flex-grow p-4 space-y-1"></nav>
@@ -99,6 +133,7 @@
                     </button>
                 </div>
             </aside>
+            <!-- Main Content -->
             <main class="flex-1 flex flex-col overflow-hidden">
                 <header class="h-16 bg-card border-b border-border flex items-center justify-between px-6 flex-shrink-0">
                     <h2 id="page-title" class="text-xl font-semibold text-card-foreground">Dashboard</h2>
@@ -112,6 +147,7 @@
         </div>
     </div>
     
+    <!-- Modals and Toasts -->
     <div id="toast" class="hidden fixed bottom-5 right-5 bg-primary text-primary-foreground py-2 px-4 rounded-lg shadow-lg text-sm z-[200]"><p id="toast-message"></p></div>
     
     <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[102]">
@@ -134,6 +170,69 @@
 
 
 <script>
+// =================================================================================
+//  SECTION: PET POOJA INTEGRATION (MODIFICATION)
+// =================================================================================
+
+/**
+ * Redirects to Pet Pooja POS for billing.
+ * This is a placeholder function. You MUST provide the correct
+ * base URL and query parameters for your Pet Pooja account.
+ */
+function redirectToPetPooja(orderId, tableNumber, cartItems, totalAmount) {
+    showToast('Sending bill to Pet Pooja...', false);
+    console.log('--- Pet Pooja Bill Generation ---');
+    console.log('Order ID:', orderId);
+    console.log('Table:', tableNumber);
+    console.log('Total:', totalAmount);
+    console.log('Items:', cartItems);
+
+    // --- IMPORTANT: ACTION REQUIRED ---
+    // 1. Replace with your actual Pet Pooja POS URL.
+    // 2. This structure is a GUESS. You must confirm the correct parameters.
+    const PET_POOJA_BASE_URL = 'https://pos.petpooja.com/billing'; // <-- REPLACE THIS
+
+    const params = new URLSearchParams();
+    
+    // Add parameters as required by Pet Pooja
+    // This is an example. Your parameters will be different.
+    params.set('restaurant_id', 'YOUR_RESTAURANT_ID'); // <-- REPLACE THIS
+    params.set('table_no', tableNumber);
+    params.set('order_id', orderId);
+    params.set('amount', totalAmount.toFixed(2));
+    
+    // Pet Pooja might require items in a specific JSON format
+    const itemsPayload = cartItems.map(item => ({
+        name: item.name,
+        qty: item.quantity,
+        price: item.price
+    }));
+    
+    // You might need to stringify and encode this
+    params.set('items_json', JSON.stringify(itemsPayload));
+    
+    const finalUrl = `${PET_POOJA_BASE_URL}?${params.toString()}`;
+
+    console.log('Final Pet Pooja URL (Example):', finalUrl);
+    
+    // --- END OF ACTION REQUIRED ---
+
+    // Check if we have a real URL before trying to open it
+    if (PET_POOJA_BASE_URL.includes('pos.petpooja.com')) {
+         // Open in a new tab
+        window.open(finalUrl, '_blank');
+    } else {
+        const message = "Pet Pooja URL is not configured. Please edit 'redirectToPetPooja' in the code.";
+        console.warn(message);
+        // We use an alert-modal instead of alert()
+        showAlert(`
+            <h2 class="text-3xl font-bold text-yellow-500 mb-4">Configuration Needed</h2>
+            <p class="text-lg text-muted-foreground mb-6">${message}</p>
+            <button onclick="hideAlert()" class="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge</button>
+        `);
+    }
+}
+
 // =================================================================================
 //  SECTION: PAGE RENDERERS
 // =================================================================================
@@ -284,17 +383,17 @@ async function renderPosForTable(tableNumber) {
     posContainer.innerHTML = `
         <div class="grid grid-cols-12 gap-4 h-full">
             <!-- Categories & Menu Items -->
-            <div class="col-span-8 flex flex-col h-full bg-card border border-border rounded-lg p-4">
+            <div class="col-span-12 md:col-span-8 flex flex-col h-full bg-card border border-border rounded-lg p-4">
                 <div class="flex items-center justify-between mb-4">
                     <button id="change-table-btn" class="text-sm font-medium hover:underline">&larr; Change Table</button>
                     <input type="text" id="search-menu-input" placeholder="Search menu..." class="w-1/2 p-2 bg-secondary rounded-md border border-border text-sm">
                 </div>
                 <!-- Scrollable Categories -->
                 <div id="category-tabs-container" class="mb-4 flex overflow-x-auto pb-2 space-x-2 whitespace-nowrap"></div>
-                <div id="menu-items-grid" class="flex-grow grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 overflow-y-auto"></div>
+                <div id="menu-items-grid" class="flex-grow grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 overflow-y-auto"></div>
             </div>
             <!-- Cart -->
-            <div class="col-span-4 flex flex-col h-full bg-card border border-border rounded-lg p-4">
+            <div class="col-span-12 md:col-span-4 flex flex-col h-full bg-card border border-border rounded-lg p-4">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-bold">Table #${tableNumber}</h3>
                     <button id="clear-cart-btn" class="text-sm text-red-500 hover:underline">Clear Cart</button>
@@ -476,6 +575,12 @@ async function renderPosForTable(tableNumber) {
             showToast('Order placed successfully!');
             const newOrderId = orderResult;
             printKOT(cart, tableNumber, $('#special-instructions').value, newOrderId);
+            
+            // MODIFICATION: Call Pet Pooja Integration
+            // We pass a deep copy of the cart to avoid issues if cart is cleared before function runs
+            redirectToPetPooja(newOrderId, tableNumber, JSON.parse(JSON.stringify(cart)), total);
+            // MODIFICATION END
+
             cart.length = 0;
             updateCartView();
             navigateTo('take_order');
@@ -704,9 +809,10 @@ async function renderMenu(container) {
 
 
 async function renderOrders(container) {
+    // MODIFICATION: Added id="orders-table-header" to the header div
     container.innerHTML = `
-        <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
-             <div class="grid grid-cols-7 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
+        <div class="bg-card p-0 md:p-4 rounded-lg shadow-sm border border-border">
+             <div id="orders-table-header" class="grid grid-cols-7 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
                 <div>Order ID</div>
                 <div>Customer</div>
                 <div>Table</div>
@@ -715,7 +821,8 @@ async function renderOrders(container) {
                 <div>Source</div>
                 <div>Actions</div>
             </div>
-            <div id="orders-table-body" class="divide-y divide-border"></div>
+            <!-- MODIFICATION: Added md:divide-y-0 -->
+            <div id="orders-table-body" class="divide-y divide-border md:divide-y-0"></div>
         </div>
         <div id="order-detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"></div>
     `;
@@ -731,10 +838,12 @@ async function renderOrders(container) {
             return;
         }
 
+        // MODIFICATION: Added two layouts per order (desktop-order-row and mobile-order-card)
         tableBody.innerHTML = data.length === 0
             ? `<p class="text-muted-foreground p-4 text-center">No order history found.</p>`
             : data.map(order => `
-                <div class="grid grid-cols-7 gap-4 items-center px-4 py-3 text-sm">
+                <!-- Desktop Row -->
+                <div class="desktop-order-row grid grid-cols-7 gap-4 items-center px-4 py-3 text-sm">
                     <div class="font-mono text-xs">${order.id.slice(0, 8)}...</div>
                     <div>${order.customers?.name || 'N/A'}</div>
                     <div>#${order.tables?.table_number || 'N/A'}</div>
@@ -752,6 +861,26 @@ async function renderOrders(container) {
                         <button class="view-order-btn text-blue-600 hover:underline" data-id="${order.id}">View</button>
                     </div>
                 </div>
+                <!-- MODIFICATION: Mobile Card View -->
+                <div class="mobile-order-card">
+                    <div class="flex justify-between items-center mb-2">
+                        <div>
+                            <p class="font-semibold">Table #${order.tables?.table_number || 'N/A'}</p>
+                            <p class="text-sm text-muted-foreground">${order.customers?.name || 'N/A'}</p>
+                        </div>
+                        <button class="view-order-btn text-blue-600 hover:underline text-sm font-medium" data-id="${order.id}">View Details</button>
+                    </div>
+                    <div class="flex justify-between items-center mt-3">
+                        <p class="font-semibold text-lg">₹${order.total_amount.toFixed(2)}</p>
+                        <select class="status-select w-1/2 bg-secondary border-border rounded-md p-1 text-xs" data-id="${order.id}">
+                            <option value="received" ${order.status === 'received' ? 'selected' : ''}>Received</option>
+                            <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option>
+                            <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
+                            <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- MODIFICATION END -->
             `).join('');
     };
 
@@ -777,6 +906,7 @@ async function renderOrders(container) {
                     <h3 class="text-lg font-semibold mb-4">Order Details (${order.id.slice(0, 8)})</h3>
                     <div class="text-sm space-y-2 mb-4">
                         <p><strong>Table:</strong> #${order.tables?.table_number || 'N/A'}</p>
+                        <p><strong>Customer:</strong> ${order.customers?.name || 'N/A'}</p>
                         <p><strong>Instructions:</strong> ${order.special_instructions || 'None'}</p>
                     </div>
                     <div class="border rounded-lg max-h-64 overflow-y-auto">
@@ -1653,4 +1783,3 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
-

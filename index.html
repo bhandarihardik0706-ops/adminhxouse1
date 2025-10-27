@@ -159,11 +159,11 @@
                 <nav id="sidebar-nav" class="flex-grow p-4 space-y-1"></nav>
                 <div class="p-4 border-t border-border space-y-2">
                     <button id="theme-toggle" class="w-full flex items-center justify-center p-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted transition-colors">
-                        <svg id="theme-icon-light" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                        <svg id="theme-icon-dark" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                        <svg id="theme-icon-light" xmlns="http://www.w.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                        <svg id="theme-icon-dark" xmlns="http://www.w.org/2000/svg" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
                     </button>
                     <button id="logout-btn" class="w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:bg-secondary hover:text-secondary-foreground transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                        <svg xmlns="http://www.w.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                         Logout
                     </button>
                 </div>
@@ -233,29 +233,60 @@
 
 /**
  * Redirects to Pet Pooja POS for billing.
- * This is a placeholder function. You MUST provide the correct
- * base URL and query parameters for your Pet Pooja account.
+ * MODIFICATION: This function now fetches credentials from 'app_settings'
+ * instead of using hardcoded constants. This fixes the tab-opening loop.
  */
-// MODIFICATION: Added discountPercentage parameter
-function redirectToPetPooja(orderId, tableNumber, cartItems, totalAmount, discountPercentage = 0) {
+async function redirectToPetPooja(orderId, tableNumber, cartItems, totalAmount, discountPercentage = 0) {
     showToast('Sending bill to Pet Pooja...', false);
     console.log('--- Pet Pooja Bill Generation ---');
     console.log('Order ID:', orderId);
     console.log('Table:', tableNumber);
-    console.log('Total (After Discount):', totalAmount);
-    console.log('Discount %:', discountPercentage);
-    console.log('Items:', cartItems);
+    
+    // --- MODIFICATION: Fetch settings from Supabase ---
+    const { data: settingsData, error } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', ['pet_pooja_base_url', 'pet_pooja_restaurant_id']);
 
-    // --- IMPORTANT: ACTION REQUIRED ---
-    // 1. Replace with your actual Pet Pooja POS URL.
-    // 2. This structure is a GUESS. You must confirm the correct parameters.
-    const PET_POOJA_BASE_URL = 'https://pos.petpooja.com/billing'; // <-- REPLACE THIS
+    if (error) {
+        showAlert(`
+            <h2 class="text-3xl font-bold text-red-500 mb-4">Error</h2>
+            <p class="text-lg text-muted-foreground mb-6">Could not fetch Pet Pooja settings from database. ${error.message}</p>
+            <button onclick="hideAlert()" class="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge</button>
+        `);
+        return;
+    }
 
+    const settings = settingsData.reduce((acc, setting) => {
+        acc[setting.key] = setting.value;
+        return acc;
+    }, {});
+
+    const PET_POOJA_BASE_URL = settings.pet_pooja_base_url;
+    const PET_POOJA_RESTAURANT_ID = settings.pet_pooja_restaurant_id;
+    // --- END OF MODIFICATION ---
+
+
+    // --- FIX: Check if the configuration is set in the database ---
+    // This stops the loop of new tabs opening if the config is not set.
+    if (!PET_POOJA_BASE_URL || !PET_POOJA_RESTAURANT_ID || PET_POOJA_BASE_URL.includes('pos.petpooja.com') === false) {
+        const message = "Pet Pooja URL or Restaurant ID is not configured. Please go to the 'Settings' page and enter the correct values for 'Pet Pooja Base Url' and 'Pet Pooja Restaurant Id'.";
+        console.warn(message);
+        // We use an alert-modal instead of alert()
+        showAlert(`
+            <h2 class="text-3xl font-bold text-yellow-500 mb-4">Configuration Needed</h2>
+            <p class="text-lg text-muted-foreground mb-6">${message}</p>
+            <button onclick="hideAlert()" class="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge</button>
+        `);
+        return; // <-- This is the important part that stops the loop.
+    }
+    // --- END OF FIX ---
+    
     const params = new URLSearchParams();
     
     // Add parameters as required by Pet Pooja
     // This is an example. Your parameters will be different.
-    params.set('restaurant_id', 'YOUR_RESTAURANT_ID'); // <-- REPLACE THIS
+    params.set('restaurant_id', PET_POOJA_RESTAURANT_ID); // Use the variable
     params.set('table_no', tableNumber);
     params.set('order_id', orderId);
     params.set('amount', totalAmount.toFixed(2)); // Send the final, discounted amount
@@ -273,24 +304,10 @@ function redirectToPetPooja(orderId, tableNumber, cartItems, totalAmount, discou
     
     const finalUrl = `${PET_POOJA_BASE_URL}?${params.toString()}`;
 
-    console.log('Final Pet Pooja URL (Example):', finalUrl);
+    console.log('Final Pet Pooja URL:', finalUrl);
     
-    // --- END OF ACTION REQUIRED ---
-
-    // Check if we have a real URL before trying to open it
-    if (PET_POOJA_BASE_URL.includes('pos.petpooja.com')) {
-         // Open in a new tab
-        window.open(finalUrl, '_blank');
-    } else {
-        const message = "Pet Pooja URL is not configured. Please edit 'redirectToPetPooja' in the code.";
-        console.warn(message);
-        // We use an alert-modal instead of alert()
-        showAlert(`
-            <h2 class="text-3xl font-bold text-yellow-500 mb-4">Configuration Needed</h2>
-            <p class="text-lg text-muted-foreground mb-6">${message}</p>
-            <button onclick="hideAlert()" class="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold">Acknowledge</button>
-        `);
-    }
+    // Open in a new tab
+    window.open(finalUrl, '_blank');
 }
 
 // =================================================================================
@@ -724,7 +741,8 @@ async function renderPosForTable(tableNumber) {
             printKOT(cart, tableNumber, $('#special-instructions').value, newOrderId);
             
             // MODIFICATION: Call Pet Pooja Integration with discount
-            redirectToPetPooja(newOrderId, tableNumber, JSON.parse(JSON.stringify(cart)), total, discountPercentage);
+            // This now contains the check to prevent the loop
+            await redirectToPetPooja(newOrderId, tableNumber, JSON.parse(JSON.stringify(cart)), total, discountPercentage);
             // MODIFICATION END
 
             cart.length = 0;
@@ -1142,7 +1160,8 @@ async function renderOrders(container) {
             }));
             
             // MODIFICATION: Pass discount to Pet Pooja
-            redirectToPetPooja(order.id, order.tables.table_number, itemsForPooja, order.total_amount, order.discount_percentage);
+            // This function now contains the fix for the loop
+            await redirectToPetPooja(order.id, order.tables.table_number, itemsForPooja, order.total_amount, order.discount_percentage);
         }
     });
 }
@@ -1233,8 +1252,9 @@ async function renderLoyalty(container) {
         loadLoyaltyCustomers(e.target.value.trim());
     });
 
-    // Event listener for the table body
+    // MODIFICATION: Replaced event listener to handle both "Manage" and "Delete"
     $('#loyalty-table-body').addEventListener('click', async (e) => {
+        // Handle Manage Points
         if (e.target.classList.contains('manage-customer-btn')) {
             const id = e.target.dataset.id;
             const { data: customer, error } = await supabase.from('customers').select('id, name, loyalty_points').eq('id', id).single();
@@ -1242,6 +1262,21 @@ async function renderLoyalty(container) {
                 openLoyaltyModal(customer);
             } else {
                 showToast('Could not fetch customer details.', true);
+            }
+        }
+        
+        // Handle Delete Customer
+        if (e.target.classList.contains('delete-customer-btn')) {
+            const id = e.target.dataset.id;
+            const confirmed = await showConfirmation('Delete Customer?', 'This will permanently delete this customer and all their loyalty data. This action cannot be undone.');
+            if (confirmed) {
+                const { error } = await supabase.from('customers').delete().eq('id', id);
+                if (error) {
+                    showToast(`Error deleting customer: ${error.message}`, true);
+                } else {
+                    showToast('Customer deleted.');
+                    loadLoyaltyCustomers($('#loyalty-search-input')?.value.trim()); // Refresh list
+                }
             }
         }
     });
@@ -1274,6 +1309,8 @@ async function loadLoyaltyCustomers(searchQuery = '') {
                 <div class="font-semibold">${customer.loyalty_points || 0}</div>
                 <div>
                     <button class="manage-customer-btn text-blue-600 hover:underline" data-id="${customer.id}">Manage</button>
+                    <!-- MODIFICATION: Added Delete button -->
+                    <button class="delete-customer-btn text-red-600 hover:underline ml-2" data-id="${customer.id}">Delete</button>
                 </div>
             </div>
         `).join('');
@@ -1531,8 +1568,8 @@ async function renderSettings(container) {
         </div>
     `;
 
+    // MODIFICATION: This function now ensures Pet Pooja fields are always visible
     const loadSettings = async () => {
-        // MODIFICATION: Changed 'settings' to 'app_settings'
         const { data, error } = await supabase.from('app_settings').select('*');
         const fieldsContainer = $('#settings-fields');
         if (!fieldsContainer) return;
@@ -1542,11 +1579,40 @@ async function renderSettings(container) {
             return;
         }
 
-        fieldsContainer.innerHTML = data.map(setting => {
-            const formattedKey = setting.key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        // --- NEW LOGIC ---
+        // Create a map of existing settings
+        const allSettings = data.reduce((acc, setting) => {
+            acc[setting.key] = setting.value;
+            return acc;
+        }, {});
+
+        // Define all keys we expect to see, providing defaults
+        const expectedKeys = [
+            { key: 'pet_pooja_base_url', label: 'Pet Pooja Base Url', value: allSettings.pet_pooja_base_url || 'https://pos.petpooja.com/billing' },
+            { key: 'pet_pooja_restaurant_id', label: 'Pet Pooja Restaurant Id', value: allSettings.pet_pooja_restaurant_id || '' }
+        ];
+
+        // Add any other settings from the DB that aren't in our expected list
+        data.forEach(setting => {
+            if (!expectedKeys.find(k => k.key === setting.key)) {
+                expectedKeys.push({
+                    key: setting.key,
+                    label: setting.key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                    value: setting.value
+                });
+            }
+        });
+        // --- END NEW LOGIC ---
+
+        // Render from the processed 'expectedKeys' array
+        fieldsContainer.innerHTML = expectedKeys.map(setting => {
+            const formattedKey = setting.label; // Use pre-formatted label
+            const helpText = setting.key === 'pet_pooja_base_url' ? "e.g., https://pos.petpooja.com/billing" : (setting.key === 'pet_pooja_restaurant_id' ? "Your unique ID from Pet Pooja" : "");
+            
             return `
                 <div>
                     <label for="setting-${setting.key}" class="text-sm font-medium text-card-foreground">${formattedKey}</label>
+                    ${helpText ? `<p class="text-xs text-muted-foreground mb-1">${helpText}</p>` : ''}
                     <input type="text" id="setting-${setting.key}" name="${setting.key}" value="${setting.value}" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border">
                 </div>
             `;
@@ -2046,6 +2112,9 @@ async function initializeApp() {
             if (state.currentPage === 'loyalty' && payload.table === 'customers') loadLoyaltyCustomers($('#loyalty-search-input')?.value.trim());
             if (state.currentPage === 'feedback' && payload.table === 'feedback') renderFeedback($('#page-content'));
             if (state.currentPage === 'analytics') renderAllCharts();
+            // MODIFICATION: Refresh settings page if settings table changes
+            if (state.currentPage === 'settings' && payload.table === 'app_settings') renderSettings($('#page-content'));
+
 
             // Real-time notifications for new inserts
             if (payload.eventType === 'INSERT') {
@@ -2127,3 +2196,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
+

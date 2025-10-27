@@ -236,12 +236,14 @@
  * This is a placeholder function. You MUST provide the correct
  * base URL and query parameters for your Pet Pooja account.
  */
-function redirectToPetPooja(orderId, tableNumber, cartItems, totalAmount) {
+// MODIFICATION: Added discountPercentage parameter
+function redirectToPetPooja(orderId, tableNumber, cartItems, totalAmount, discountPercentage = 0) {
     showToast('Sending bill to Pet Pooja...', false);
     console.log('--- Pet Pooja Bill Generation ---');
     console.log('Order ID:', orderId);
     console.log('Table:', tableNumber);
-    console.log('Total:', totalAmount);
+    console.log('Total (After Discount):', totalAmount);
+    console.log('Discount %:', discountPercentage);
     console.log('Items:', cartItems);
 
     // --- IMPORTANT: ACTION REQUIRED ---
@@ -256,7 +258,8 @@ function redirectToPetPooja(orderId, tableNumber, cartItems, totalAmount) {
     params.set('restaurant_id', 'YOUR_RESTAURANT_ID'); // <-- REPLACE THIS
     params.set('table_no', tableNumber);
     params.set('order_id', orderId);
-    params.set('amount', totalAmount.toFixed(2));
+    params.set('amount', totalAmount.toFixed(2)); // Send the final, discounted amount
+    params.set('discount_percent', discountPercentage.toString()); // Send discount info
     
     // Pet Pooja might require items in a specific JSON format
     const itemsPayload = cartItems.map(item => ({
@@ -305,8 +308,25 @@ async function renderDashboard(container) {
                 </div>
             </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            <div class="bg-card p-5 rounded-lg border border-border shadow-sm"><h4 class="text-sm font-medium text-muted-foreground">Today's Revenue</h4><p id="db-revenue" class="text-2xl font-bold">₹0.00</p></div>
+        <!-- MODIFICATION: Updated grid for revenue cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            <div class="bg-card p-5 rounded-lg border border-border shadow-sm lg:col-span-1">
+                <h4 class="text-sm font-medium text-muted-foreground">Today's Actual Revenue</h4>
+                <p id="db-revenue-actual" class="text-2xl font-bold">₹0.00</p>
+                <p class="text-xs text-muted-foreground">After discounts</p>
+            </div>
+            <div class="bg-card p-5 rounded-lg border border-border shadow-sm lg:col-span-1">
+                <h4 class="text-sm font-medium text-muted-foreground">Today's Gross Revenue</h4>
+                <p id="db-revenue-gross" class="text-2xl font-bold">₹0.00</p>
+                <p class="text-xs text-muted-foreground">Before discounts</p>
+            </div>
+            <div class="bg-card p-5 rounded-lg border border-border shadow-sm lg:col-span-1">
+                <h4 class="text-sm font-medium text-muted-foreground">Today's Discounts</h4>
+                <p id="db-total-discount" class="text-2xl font-bold text-red-500">₹0.00</p>
+                <p id="db-avg-discount-percent" class="text-xs text-muted-foreground">0% average</p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div class="bg-card p-5 rounded-lg border border-border shadow-sm"><h4 class="text-sm font-medium text-muted-foreground">Today's Orders</h4><p id="db-orders" class="text-2xl font-bold">0</p></div>
             <div class="bg-card p-5 rounded-lg border border-border shadow-sm"><h4 class="text-sm font-medium text-muted-foreground">Pending Orders</h4><p id="db-pending-orders" class="text-2xl font-bold">0</p></div>
             <div class="bg-card p-5 rounded-lg border border-border shadow-sm"><h4 class="text-sm font-medium text-muted-foreground">Pending Calls</h4><p id="db-pending-calls" class="text-2xl font-bold">0</p></div>
@@ -331,13 +351,42 @@ async function renderDashboard(container) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const { data: orders, error: ordersError } = await supabase.from('orders').select('total_amount, status').gte('created_at', today.toISOString());
+    // MODIFICATION: Fetch discount_percentage
+    const { data: orders, error: ordersError } = await supabase.from('orders').select('total_amount, status, discount_percentage').gte('created_at', today.toISOString());
     const { count, error: callsError } = await supabase.from('staff_calls').select('*', { count: 'exact', head: true }).eq('status', 'pending');
     
     if (!ordersError) {
-        const totalRevenue = orders.reduce((sum, order) => sum + order.total_amount, 0);
+        let totalRevenueAfterDiscount = 0;
+        let totalRevenueBeforeDiscount = 0;
+
+        orders.forEach(order => {
+            const total = order.total_amount || 0;
+            const discount = order.discount_percentage || 0;
+            totalRevenueAfterDiscount += total;
+
+            // Calculate original gross total
+            // total = (originalSubtotal * (1 - D/100)) * 1.05
+            // originalSubtotal = (total / 1.05) / (1 - D/100)
+            // originalGrossTotal = originalSubtotal * 1.05
+            let originalGrossTotal = total;
+            if (discount > 0 && discount < 100) {
+                 const discountedSubtotal = total / 1.05;
+                 const originalSubtotal = discountedSubtotal / (1 - discount / 100);
+                 originalGrossTotal = originalSubtotal * 1.05;
+            }
+            totalRevenueBeforeDiscount += originalGrossTotal;
+        });
+        
+        const totalDiscountAmount = totalRevenueBeforeDiscount - totalRevenueAfterDiscount;
+        const avgDiscountPercent = totalRevenueBeforeDiscount > 0 ? (totalDiscountAmount / totalRevenueBeforeDiscount) * 100 : 0;
+
         const pendingOrders = orders.filter(o => o.status === 'received' || o.status === 'preparing').length;
-        $('#db-revenue').textContent = `₹${totalRevenue.toFixed(2)}`;
+        
+        $('#db-revenue-actual').textContent = `₹${totalRevenueAfterDiscount.toFixed(2)}`;
+        $('#db-revenue-gross').textContent = `₹${totalRevenueBeforeDiscount.toFixed(2)}`;
+        $('#db-total-discount').textContent = `₹${totalDiscountAmount.toFixed(2)}`;
+        $('#db-avg-discount-percent').textContent = `${avgDiscountPercent.toFixed(1)}% average`;
+
         $('#db-orders').textContent = orders.length;
         $('#db-pending-orders').textContent = pendingOrders;
     }
@@ -474,8 +523,14 @@ async function renderPosForTable(tableNumber) {
                 </div>
                 <div class="pt-4 border-t border-border">
                     <textarea id="special-instructions" placeholder="Special Instructions..." class="w-full p-2 bg-secondary rounded-md border border-border text-sm mb-4" rows="2"></textarea>
+                    <!-- MODIFICATION: Added discount input and updated totals section -->
                     <div class="space-y-1 text-sm mb-4">
                         <div class="flex justify-between"><p>Subtotal</p><p id="cart-subtotal">₹0.00</p></div>
+                        <div class="flex justify-between items-center">
+                            <label for="discount-percentage" class="text-muted-foreground">Discount (%)</label>
+                            <input type="number" id="discount-percentage" class="w-20 p-1 bg-secondary rounded-md border border-border text-right" value="0" min="0" max="100">
+                        </div>
+                        <div class="flex justify-between text-red-500"><p>Discount Amount</p><p id="cart-discount-amount">₹0.00</p></div>
                         <div class="flex justify-between"><p>GST (5%)</p><p id="cart-gst">₹0.00</p></div>
                         <div class="flex justify-between font-bold text-base"><p>Total</p><p id="cart-total">₹0.00</p></div>
                     </div>
@@ -527,15 +582,27 @@ async function renderPosForTable(tableNumber) {
             if(whatsappBillBtn) whatsappBillBtn.disabled = false;
         }
 
+        // MODIFICATION: Calculate totals with discount
+        const discountPercentage = parseFloat($('#discount-percentage').value) || 0;
         const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        const gst = subtotal * 0.05;
-        const total = subtotal + gst;
+        const discountAmount = subtotal * (discountPercentage / 100);
+        const discountedSubtotal = subtotal - discountAmount;
+        const gst = discountedSubtotal * 0.05;
+        const total = discountedSubtotal + gst;
 
         $('#cart-subtotal').textContent = `₹${subtotal.toFixed(2)}`;
+        $('#cart-discount-amount').textContent = `-₹${discountAmount.toFixed(2)}`;
         $('#cart-gst').textContent = `₹${gst.toFixed(2)}`;
         $('#cart-total').textContent = `₹${total.toFixed(2)}`;
     };
     
+    // Add listener for discount input
+    posContainer.addEventListener('input', e => {
+        if (e.target.id === 'discount-percentage') {
+            updateCartView();
+        }
+    });
+
     const loadAndRenderMenu = async (filter = '', category = 'All') => {
         let query = supabase.from('products').select('*').eq('is_available', true);
         if (filter) {
@@ -607,6 +674,7 @@ async function renderPosForTable(tableNumber) {
     
     $('#clear-cart-btn').addEventListener('click', () => {
         cart.length = 0;
+        $('#discount-percentage').value = 0; // Reset discount
         updateCartView();
     });
     
@@ -620,13 +688,19 @@ async function renderPosForTable(tableNumber) {
         btn.disabled = true;
         btn.textContent = 'Saving...';
         
+        // MODIFICATION: Get discount and recalculate final total
+        const discountPercentage = parseFloat($('#discount-percentage').value) || 0;
         const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        const total = subtotal * 1.05;
+        const discountAmount = subtotal * (discountPercentage / 100);
+        const discountedSubtotal = subtotal - discountAmount;
+        const gst = discountedSubtotal * 0.05;
+        const total = discountedSubtotal + gst;
 
         const orderData = {
             table_number_input: parseInt(tableNumber),
             special_instructions_input: $('#special-instructions').value,
-            total_amount_input: total,
+            total_amount_input: total, // Save the final discounted total
+            discount_percentage_input: discountPercentage, // Save the discount percentage
             source_input: 'Staff',
             order_items: cart.map(item => ({
                 product_id: item.id,
@@ -635,6 +709,8 @@ async function renderPosForTable(tableNumber) {
             }))
         };
         
+        // Note: Assumes the RPC 'create_order_with_items' has been updated
+        // in Supabase to accept 'discount_percentage_input'
         const { data: orderResult, error } = await supabase.rpc('create_order_with_items', orderData);
 
         if (error) {
@@ -647,23 +723,25 @@ async function renderPosForTable(tableNumber) {
             const newOrderId = orderResult;
             printKOT(cart, tableNumber, $('#special-instructions').value, newOrderId);
             
-            // MODIFICATION: Call Pet Pooja Integration
-            // We pass a deep copy of the cart to avoid issues if cart is cleared before function runs
-            redirectToPetPooja(newOrderId, tableNumber, JSON.parse(JSON.stringify(cart)), total);
+            // MODIFICATION: Call Pet Pooja Integration with discount
+            redirectToPetPooja(newOrderId, tableNumber, JSON.parse(JSON.stringify(cart)), total, discountPercentage);
             // MODIFICATION END
 
             cart.length = 0;
+            $('#discount-percentage').value = 0;
             updateCartView();
             navigateTo('take_order');
         }
     });
     
     $('#print-bill-btn').addEventListener('click', async () => {
-        printBill(cart, tableNumber);
+        const discountPercentage = parseFloat($('#discount-percentage').value) || 0;
+        printBill(cart, tableNumber, null, discountPercentage); // Pass discount
     });
 
     $('#whatsapp-bill-btn').addEventListener('click', () => {
-        sendBillViaWhatsApp(cart, tableNumber);
+        const discountPercentage = parseFloat($('#discount-percentage').value) || 0;
+        sendBillViaWhatsApp(cart, tableNumber, null, null, discountPercentage); // Pass discount
     });
     
     await loadCategories();
@@ -880,17 +958,18 @@ async function renderMenu(container) {
 
 
 async function renderOrders(container) {
-    // MODIFICATION: Added id="orders-table-header" to the header div
+    // MODIFICATION: Added id="orders-table-header" and updated grid columns
     container.innerHTML = `
         <div class="bg-card p-0 md:p-4 rounded-lg shadow-sm border border-border">
-             <div id="orders-table-header" class="grid grid-cols-7 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
+             <div id="orders-table-header" class="grid grid-cols-9 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
                 <div>Order ID</div>
                 <div>Customer</div>
                 <div>Table</div>
                 <div>Total</div>
+                <div>Discount</div>
                 <div>Status</div>
                 <div>Source</div>
-                <div>Actions</div>
+                <div class="col-span-2">Actions</div>
             </div>
             <!-- MODIFICATION: Added md:divide-y-0 -->
             <div id="orders-table-body" class="divide-y divide-border md:divide-y-0"></div>
@@ -899,8 +978,8 @@ async function renderOrders(container) {
     `;
 
     const loadOrders = async () => {
-        // MODIFICATION: Added order_items(*, products(name)) to fetch items for all orders
-        const { data, error } = await supabase.from('orders').select('*, customers(name, whatsapp_number), tables(table_number), order_items(*, products(name))').order('created_at', { ascending: false }).limit(100);
+        // MODIFICATION: Added discount_percentage and order_items
+        const { data, error } = await supabase.from('orders').select('*, customers(name, whatsapp_number), tables(table_number), order_items(*, products(name)), discount_percentage').order('created_at', { ascending: false }).limit(100);
         
         const tableBody = $('#orders-table-body');
         if (!tableBody) return;
@@ -914,12 +993,13 @@ async function renderOrders(container) {
         tableBody.innerHTML = data.length === 0
             ? `<p class="text-muted-foreground p-4 text-center">No order history found.</p>`
             : data.map(order => `
-                <!-- Desktop Row -->
-                <div class="desktop-order-row grid grid-cols-7 gap-4 items-center px-4 py-3 text-sm">
+                <!-- MODIFICATION: Desktop Row updated to grid-cols-9 -->
+                <div class="desktop-order-row grid grid-cols-9 gap-4 items-center px-4 py-3 text-sm">
                     <div class="font-mono text-xs">${order.id.slice(0, 8)}...</div>
                     <div>${order.customers?.name || 'N/A'}</div>
                     <div>#${order.tables?.table_number || 'N/A'}</div>
                     <div class="font-semibold">₹${order.total_amount.toFixed(2)}</div>
+                    <div class="font-medium text-red-500">${order.discount_percentage || 0}%</div>
                     <div>
                         <select class="status-select w-full bg-secondary border-border rounded-md p-1 text-xs" data-id="${order.id}">
                             <option value="received" ${order.status === 'received' ? 'selected' : ''}>Received</option>
@@ -929,7 +1009,7 @@ async function renderOrders(container) {
                         </select>
                     </div>
                     <td>${order.source || 'Customer'}</td>
-                    <div>
+                    <div class="col-span-2">
                         <button class="view-order-btn text-blue-600 hover:underline" data-id="${order.id}">View</button>
                         <!-- MODIFICATION: Added Send to POS button -->
                         <button class="send-to-pos-btn text-green-600 hover:underline ml-2" data-id="${order.id}">Send to POS</button>
@@ -960,7 +1040,10 @@ async function renderOrders(container) {
                     <!-- MODIFICATION END -->
                     
                     <div class="flex justify-between items-center mt-3">
-                        <p class="font-semibold text-lg">₹${order.total_amount.toFixed(2)}</p>
+                        <div>
+                           <p class="font-semibold text-lg">₹${order.total_amount.toFixed(2)}</p>
+                           <p class="text-sm font-medium text-red-500">Discount: ${order.discount_percentage || 0}%</p>
+                        </div>
                         <select class="status-select w-1/2 bg-secondary border-border rounded-md p-1 text-xs" data-id="${order.id}">
                             <option value="received" ${order.status === 'received' ? 'selected' : ''}>Received</option>
                             <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option>
@@ -989,10 +1072,21 @@ async function renderOrders(container) {
 
     container.addEventListener('click', async (e) => {
         if (e.target.classList.contains('view-order-btn')) {
-            const { data: order, error } = await supabase.from('orders').select('*, tables(table_number), customers(whatsapp_number), order_items(*, products(*))').eq('id', e.target.dataset.id).single();
+            // MODIFICATION: Fetch discount_percentage
+            const { data: order, error } = await supabase.from('orders').select('*, tables(table_number), customers(name, whatsapp_number), order_items(*, products(*)), discount_percentage').eq('id', e.target.dataset.id).single();
             if(error) { showToast('Could not fetch order details', true); return; }
             
             const modal = $('#order-detail-modal');
+            
+            // MODIFICATION: Calculate totals for modal view
+            const items = order.order_items.map(oi => ({name: oi.products?.name || '[Deleted]', price: oi.price_at_time_of_order, quantity: oi.quantity}));
+            const discountPercentage = order.discount_percentage || 0;
+            const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            const discountAmount = subtotal * (discountPercentage / 100);
+            const discountedSubtotal = subtotal - discountAmount;
+            const gst = discountedSubtotal * 0.05;
+            const total = discountedSubtotal + gst; // This should match order.total_amount
+
             modal.innerHTML = `
                 <div class="bg-card rounded-lg shadow-xl p-6 w-full max-w-lg relative">
                     <button onclick="$('#order-detail-modal').classList.add('hidden')" class="absolute top-3 right-3 text-muted-foreground text-2xl">&times;</button>
@@ -1002,10 +1096,16 @@ async function renderOrders(container) {
                         <p><strong>Customer:</strong> ${order.customers?.name || 'N/A'}</p>
                         <p><strong>Instructions:</strong> ${order.special_instructions || 'None'}</p>
                     </div>
-                    <div class="border rounded-lg max-h-64 overflow-y-auto">
+                    <div class="border rounded-lg max-h-48 overflow-y-auto">
                         ${order.order_items.map(item => `<div class="flex justify-between p-2 border-b"><p>${item.quantity} x ${item.products?.name || '[Deleted]'}</p><p>₹${(item.price_at_time_of_order * item.quantity).toFixed(2)}</p></div>`).join('')}
                     </div>
-                    <div class="flex justify-between p-2 font-bold mt-2"><p>Total</p><p>₹${order.total_amount.toFixed(2)}</p></div>
+                    <!-- MODIFICATION: Updated totals display in modal -->
+                    <div class="space-y-1 text-sm mt-4">
+                        <div class="flex justify-between"><p>Subtotal</p><p>₹${subtotal.toFixed(2)}</p></div>
+                        <div class="flex justify-between text-red-500"><p>Discount (${discountPercentage}%)</p><p>-₹${discountAmount.toFixed(2)}</p></div>
+                        <div class="flex justify-between"><p>GST (5%)</p><p>₹${gst.toFixed(2)}</p></div>
+                        <div class="flex justify-between font-bold text-base"><p>Grand Total</p><p>₹${total.toFixed(2)}</p></div>
+                    </div>
                     <div class="flex justify-end space-x-2 mt-4">
                         <button class="print-kot-modal-btn bg-blue-600 text-white px-4 py-2 text-sm rounded-lg">Print KOT</button>
                         <button class="print-bill-modal-btn bg-green-600 text-white px-4 py-2 text-sm rounded-lg">Print Bill</button>
@@ -1013,15 +1113,11 @@ async function renderOrders(container) {
                     </div>
                 </div>
             `;
+            // MODIFICATION: Pass discount to print/whatsapp functions
             modal.querySelector('.print-kot-modal-btn').onclick = () => printKOT(order.order_items.map(oi => ({name: oi.products.name, quantity: oi.quantity})), order.tables.table_number, order.special_instructions, order.id);
-            modal.querySelector('.print-bill-modal-btn').onclick = () => printBill(order.order_items.map(oi => ({name: oi.products.name, price: oi.price_at_time_of_order, quantity: oi.quantity})), order.tables.table_number, order.id);
+            modal.querySelector('.print-bill-modal-btn').onclick = () => printBill(items, order.tables.table_number, order.id, discountPercentage);
             modal.querySelector('.whatsapp-bill-modal-btn').onclick = () => {
-                const itemsForBill = order.order_items.map(oi => ({
-                    name: oi.products?.name || '[Deleted]', 
-                    price: oi.price_at_time_of_order, 
-                    quantity: oi.quantity
-                }));
-                sendBillViaWhatsApp(itemsForBill, order.tables.table_number, order.id, order.customers?.whatsapp_number);
+                sendBillViaWhatsApp(items, order.tables.table_number, order.id, order.customers?.whatsapp_number, discountPercentage);
             };
             modal.classList.remove('hidden');
         }
@@ -1030,7 +1126,8 @@ async function renderOrders(container) {
         if (e.target.classList.contains('send-to-pos-btn')) {
             const orderId = e.target.dataset.id;
             showToast('Fetching order details for POS...');
-            const { data: order, error } = await supabase.from('orders').select('*, tables(table_number), order_items(*, products(*))').eq('id', orderId).single();
+            // MODIFICATION: Fetch discount_percentage
+            const { data: order, error } = await supabase.from('orders').select('*, tables(table_number), order_items(*, products(*)), discount_percentage').eq('id', orderId).single();
             
             if (error || !order) {
                 showToast('Error fetching order details.', true);
@@ -1044,7 +1141,8 @@ async function renderOrders(container) {
                 price: item.price_at_time_of_order
             }));
             
-            redirectToPetPooja(order.id, order.tables.table_number, itemsForPooja, order.total_amount);
+            // MODIFICATION: Pass discount to Pet Pooja
+            redirectToPetPooja(order.id, order.tables.table_number, itemsForPooja, order.total_amount, order.discount_percentage);
         }
     });
 }
@@ -1305,8 +1403,9 @@ async function renderReports(container) {
             
             showToast('Generating report...');
 
+            // MODIFICATION: Select discount_percentage
             const { data, error } = await supabase.from('orders')
-                .select(`id, created_at, total_amount, tables(table_number), order_items(quantity, products(name, category, price))`)
+                .select(`id, created_at, total_amount, discount_percentage, tables(table_number), order_items(quantity, products(name, category, price))`)
                 .gte('created_at', startDate.toISOString())
                 .order('created_at', { ascending: false });
 
@@ -1321,7 +1420,8 @@ async function renderReports(container) {
                 return `"${str.replace(/"/g, '""')}"`;
             };
 
-            let csvContent = "OrderID,Timestamp,Table,ItemName,Category,Quantity,Price,Total\n";
+            // MODIFICATION: Added discount columns
+            let csvContent = "OrderID,Timestamp,Table,FinalTotal,DiscountPercent,ItemName,Category,Quantity,ItemPrice,ItemSubtotal\n";
             
             data.forEach(order => {
                 order.order_items.forEach(item => {
@@ -1329,6 +1429,8 @@ async function renderReports(container) {
                         escapeCsvField(order.id),
                         escapeCsvField(order.created_at),
                         escapeCsvField(order.tables?.table_number),
+                        escapeCsvField(order.total_amount),
+                        escapeCsvField(order.discount_percentage),
                         escapeCsvField(item.products?.name),
                         escapeCsvField(item.products?.category),
                         escapeCsvField(item.quantity),
@@ -1430,7 +1532,8 @@ async function renderSettings(container) {
     `;
 
     const loadSettings = async () => {
-        const { data, error } = await supabase.from('settings').select('*');
+        // MODIFICATION: Changed 'settings' to 'app_settings'
+        const { data, error } = await supabase.from('app_settings').select('*');
         const fieldsContainer = $('#settings-fields');
         if (!fieldsContainer) return;
 
@@ -1461,7 +1564,8 @@ async function renderSettings(container) {
         }
 
         // Use onConflict to either insert new settings or update existing ones.
-        const { error } = await supabase.from('settings').upsert(updates, { onConflict: 'key' });
+        // MODIFICATION: Changed 'settings' to 'app_settings'
+        const { error } = await supabase.from('app_settings').upsert(updates, { onConflict: 'key' });
 
         if (error) {
             showToast(`Error saving settings: ${error.message}`, true);
@@ -1626,12 +1730,17 @@ function printKOT(items, tableNumber, specialInstructions, orderId = null) {
     printContainer.classList.add('hidden');
 }
 
-function printBill(items, tableNumber, orderId = null) {
+// MODIFICATION: Added discountPercentage parameter
+function printBill(items, tableNumber, orderId = null, discountPercentage = 0) {
     const printContainer = $('#printable-area');
     const now = new Date();
+    
+    // MODIFICATION: Calculate totals with discount
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const gst = subtotal * 0.05;
-    const total = subtotal + gst;
+    const discountAmount = subtotal * (discountPercentage / 100);
+    const discountedSubtotal = subtotal - discountAmount;
+    const gst = discountedSubtotal * 0.05;
+    const total = discountedSubtotal + gst;
     
     let itemsHtml = items.map(item => `
         <tr>
@@ -1640,7 +1749,7 @@ function printBill(items, tableNumber, orderId = null) {
         </tr>
     `).join('');
 
-    // MODIFICATION: Set base font-size to 12px, removed fixed width, added max-width, tightened margins
+    // MODIFICATION: Updated bill HTML to include discount
     const content = `
         <div style="font-family: 'Courier New', monospace; font-size: 12px; max-width: 80mm; text-align: center; font-weight: bold; color: black; line-height: 1.4;">
             <h3 style="font-size: 16px; margin: 0;">${INVOICE_DETAILS.name}</h3>
@@ -1658,8 +1767,9 @@ function printBill(items, tableNumber, orderId = null) {
             <hr style="border-top: 1px dashed black; margin: 5px 0;">
             <table style="width: 100%; font-size: 12px;">
                 <tr><td>Subtotal</td><td style="text-align: right;">${subtotal.toFixed(2)}</td></tr>
+                <tr><td>Discount (${discountPercentage}%)</td><td style="text-align: right;">-${discountAmount.toFixed(2)}</td></tr>
                 <tr><td>GST (5%)</td><td style="text-align: right;">${gst.toFixed(2)}</td></tr>
-                <tr style="font-weight: bold;"><td>Total</td><td style="text-align: right;">${total.toFixed(2)}</td></tr>
+                <tr style="font-weight: bold; font-size: 14px;"><td>Grand Total</td><td style="text-align: right;">${total.toFixed(2)}</td></tr>
             </table>
             <hr style="border-top: 1px dashed black; margin: 5px 0;">
             <p style="margin-top: 10px;">${INVOICE_DETAILS.footer}</p>
@@ -1671,11 +1781,15 @@ function printBill(items, tableNumber, orderId = null) {
     printContainer.classList.add('hidden');
 }
 
-function formatBillForWhatsApp(items, tableNumber, orderId = null) {
+// MODIFICATION: Added discountPercentage parameter
+function formatBillForWhatsApp(items, tableNumber, orderId = null, discountPercentage = 0) {
     const now = new Date();
+    // MODIFICATION: Calculate totals with discount
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const gst = subtotal * 0.05;
-    const total = subtotal + gst;
+    const discountAmount = subtotal * (discountPercentage / 100);
+    const discountedSubtotal = subtotal - discountAmount;
+    const gst = discountedSubtotal * 0.05;
+    const total = discountedSubtotal + gst;
 
     let message = `*${INVOICE_DETAILS.name}*\n\n`;
     message += `*Bill Receipt*\n`;
@@ -1691,8 +1805,9 @@ function formatBillForWhatsApp(items, tableNumber, orderId = null) {
     });
     message += `\n-----------------------------------\n`;
     message += `Subtotal: ₹${subtotal.toFixed(2)}\n`;
+    message += `Discount (${discountPercentage}%): -₹${discountAmount.toFixed(2)}\n`;
     message += `GST (5%): ₹${gst.toFixed(2)}\n`;
-    message += `*Total: ₹${total.toFixed(2)}*\n`;
+    message += `*Grand Total: ₹${total.toFixed(2)}*\n`;
     message += `-----------------------------------\n\n`;
     message += `_${INVOICE_DETAILS.footer}_`;
 
@@ -1730,7 +1845,8 @@ function promptForPhoneNumber() {
     });
 }
 
-async function sendBillViaWhatsApp(items, tableNumber, orderId = null, customerPhoneNumber = null) {
+// MODIFICATION: Added discountPercentage parameter
+async function sendBillViaWhatsApp(items, tableNumber, orderId = null, customerPhoneNumber = null, discountPercentage = 0) {
     let phoneNumber = customerPhoneNumber;
 
     if (!phoneNumber) {
@@ -1738,7 +1854,7 @@ async function sendBillViaWhatsApp(items, tableNumber, orderId = null, customerP
     }
 
     if (phoneNumber) {
-        const message = formatBillForWhatsApp(items, tableNumber, orderId);
+        const message = formatBillForWhatsApp(items, tableNumber, orderId, discountPercentage);
         const url = `https://wa.me/${phoneNumber}?text=${message}`;
         window.open(url, '_blank');
         showToast('Redirecting to WhatsApp...');
@@ -1749,7 +1865,8 @@ async function sendBillViaWhatsApp(items, tableNumber, orderId = null, customerP
 async function renderAllCharts() {
     // This function can be optimized by fetching data once
     const { data: orderItems, error: itemsError } = await supabase.from('order_items').select('quantity, products(name, category, price)');
-    const { data: orders, error: ordersError } = await supabase.from('orders').select('created_at, total_amount').gte('created_at', new Date(new Date().setDate(new Date().getDate() - 30)).toISOString());
+    // MODIFICATION: Fetch discount_percentage
+    const { data: orders, error: ordersError } = await supabase.from('orders').select('created_at, total_amount, discount_percentage').gte('created_at', new Date(new Date().setDate(new Date().getDate() - 30)).toISOString());
 
     if(itemsError || ordersError) { console.error("Chart data error"); return; }
     
@@ -1762,14 +1879,14 @@ async function renderAllCharts() {
     const sortedItems = Object.entries(itemCounts).sort(([,a],[,b]) => b-a).slice(0, 5);
     if ($('#topItemsChart')) new Chart($('#topItemsChart'), { type: 'bar', data: { labels: sortedItems.map(i => i[0]), datasets: [{ label: 'Quantity Sold', data: sortedItems.map(i => i[1]), backgroundColor: '#3b82f6' }] }, options: { indexAxis: 'y', responsive: true } });
 
-    // Daily Revenue
+    // Daily Revenue (Actual, after discount)
     const revenueByDay = orders.reduce((acc, order) => {
         const day = new Date(order.created_at).toISOString().split('T')[0];
         acc[day] = (acc[day] || 0) + order.total_amount;
         return acc;
     }, {});
     const sortedDays = Object.entries(revenueByDay).sort(([a],[b]) => new Date(a) - new Date(b));
-    if ($('#revenueChart')) new Chart($('#revenueChart'), { type: 'line', data: { labels: sortedDays.map(d => new Date(d[0]).toLocaleDateString('en-GB', {day:'numeric', month:'short'})), datasets: [{ label: 'Daily Revenue (₹)', data: sortedDays.map(d => d[1]), borderColor: '#10b981', tension: 0.1 }] }, options: { responsive: true } });
+    if ($('#revenueChart')) new Chart($('#revenueChart'), { type: 'line', data: { labels: sortedDays.map(d => new Date(d[0]).toLocaleDateString('en-GB', {day:'numeric', month:'short'})), datasets: [{ label: 'Actual Revenue (₹)', data: sortedDays.map(d => d[1]), borderColor: '#10b981', tension: 0.1 }] }, options: { responsive: true } });
 
     // Revenue by Category
     const revenueByCategory = orderItems.reduce((acc, item) => {

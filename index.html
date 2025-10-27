@@ -201,6 +201,26 @@
     <div id="alert-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[101]">
         <div id="alert-modal-content" class="bg-card p-8 rounded-lg shadow-2xl text-center w-full max-w-md transform transition-all"></div>
     </div>
+
+    <!-- MODIFICATION: Added Loyalty Modal -->
+    <div id="loyalty-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-card rounded-lg shadow-xl p-6 w-full max-w-sm">
+            <h3 id="loyalty-modal-title" class="text-lg font-semibold mb-4">Manage Points</h3>
+            <form id="loyalty-form">
+                <input type="hidden" id="loyalty-customer-id">
+                <p class="mb-2 text-muted-foreground">Current Points: <strong id="current-points" class="text-card-foreground text-lg">0</strong></p>
+                <div class="mb-4">
+                    <label for="points-to-change" class="text-sm font-medium text-muted-foreground">Points to Add/Subtract</label>
+                    <input type="number" id="points-to-change" placeholder="e.g., 50" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border" required>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" id="loyalty-cancel-btn" class="bg-secondary text-secondary-foreground px-4 py-2 rounded-lg text-sm">Cancel</button>
+                    <button type="submit" data-action="subtract" class="bg-destructive text-destructive-foreground px-4 py-2 rounded-lg text-sm">Subtract</button>
+                    <button type="submit" data-action="add" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
     
     <div id="printable-area" class="hidden"></div>
     <audio id="notification-sound" src="https://ttdnlatylcqrevzlyrru.supabase.co/storage/v1/object/public/assets/notification-sound-effect-372475.mp3" preload="auto"></audio>
@@ -1091,63 +1111,89 @@ async function deleteCall(callId) {
     }
 }
 
-
-async function renderCustomers(container) {
+// MODIFICATION: Renamed function to renderLoyalty
+async function renderLoyalty(container) {
     container.innerHTML = `
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Customer Loyalty</h3>
+            <input type="text" id="loyalty-search-input" placeholder="Search by name or phone..." class="w-1/2 p-2 bg-secondary rounded-md border border-border text-sm">
+        </div>
         <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
-            <div class="grid grid-cols-4 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
+            <div class="grid grid-cols-5 gap-4 font-semibold text-sm text-muted-foreground px-4 py-2 border-b border-border">
                 <div class="col-span-2">Name</div>
                 <div>Phone</div>
+                <div>Points</div>
                 <div>Actions</div>
             </div>
-            <div id="customers-table-body" class="divide-y divide-border"></div>
+            <div id="loyalty-table-body" class="divide-y divide-border"></div>
         </div>
     `;
 
-    const loadCustomers = async () => {
-        const { data, error } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
-        const tableBody = $('#customers-table-body');
-        if (!tableBody) return;
+    await loadLoyaltyCustomers(); // Initial load
 
-        if (error) {
-            tableBody.innerHTML = `<p class="text-destructive p-4 text-center">Error: ${error.message}</p>`;
-            return;
-        }
-        
-        tableBody.innerHTML = data.length === 0 
-            ? `<p class="text-muted-foreground p-4 text-center">No customers found.</p>`
-            : data.map(customer => `
-                <div class="grid grid-cols-4 gap-4 items-center px-4 py-3 text-sm">
-                    <div class="col-span-2 font-medium">${customer.name || 'N/A'}</div>
-                    <div>${customer.whatsapp_number || 'N/A'}</div>
-                    <div>
-                        <button class="delete-customer-btn text-red-600 hover:underline" data-id="${customer.id}" data-name="${customer.name}">Delete</button>
-                    </div>
-                </div>
-            `).join('');
-    };
+    $('#loyalty-search-input').addEventListener('input', (e) => {
+        loadLoyaltyCustomers(e.target.value.trim());
+    });
 
-    await loadCustomers();
-    
-    container.addEventListener('click', async (e) => {
-        if (e.target.classList.contains('delete-customer-btn')) {
+    // Event listener for the table body
+    $('#loyalty-table-body').addEventListener('click', async (e) => {
+        if (e.target.classList.contains('manage-customer-btn')) {
             const id = e.target.dataset.id;
-            const name = e.target.dataset.name;
-            const confirmed = await showConfirmation('Delete Customer?', `This will permanently delete ${name} and their data. This action cannot be undone.`);
-            
-            if (confirmed) {
-                // Note: Ensure RLS and cascade deletes are set up in Supabase for this to work safely.
-                const { error } = await supabase.from('customers').delete().eq('id', id);
-                if (error) {
-                    showToast(`Error: ${error.message}`, true);
-                } else {
-                    showToast(`Customer ${name} deleted.`);
-                    loadCustomers();
-                }
+            const { data: customer, error } = await supabase.from('customers').select('id, name, loyalty_points').eq('id', id).single();
+            if (customer) {
+                openLoyaltyModal(customer);
+            } else {
+                showToast('Could not fetch customer details.', true);
             }
         }
     });
 }
+
+// MODIFICATION: Created global loadLoyaltyCustomers function
+async function loadLoyaltyCustomers(searchQuery = '') {
+    let query = supabase.from('customers').select('id, name, whatsapp_number, loyalty_points').order('created_at', { ascending: false });
+
+    if (searchQuery) {
+        // Use 'or' to search in multiple columns
+        query = query.or(`name.ilike.%${searchQuery}%,whatsapp_number.ilike.%${searchQuery}%`);
+    }
+
+    const { data, error } = await query;
+    const tableBody = $('#loyalty-table-body');
+    if (!tableBody) return;
+
+    if (error) {
+        tableBody.innerHTML = `<p class="text-destructive p-4 text-center">Error: ${error.message}</p>`;
+        return;
+    }
+    
+    tableBody.innerHTML = data.length === 0 
+        ? `<p class="text-muted-foreground p-4 text-center">No customers found.</p>`
+        : data.map(customer => `
+            <div class="grid grid-cols-5 gap-4 items-center px-4 py-3 text-sm">
+                <div class="col-span-2 font-medium">${customer.name || 'N/A'}</div>
+                <div>${customer.whatsapp_number || 'N/A'}</div>
+                <div class="font-semibold">${customer.loyalty_points || 0}</div>
+                <div>
+                    <button class="manage-customer-btn text-blue-600 hover:underline" data-id="${customer.id}">Manage</button>
+                </div>
+            </div>
+        `).join('');
+}
+
+// MODIFICATION: Added functions to open/close loyalty modal
+function openLoyaltyModal(customer) {
+    $('#loyalty-customer-id').value = customer.id;
+    $('#loyalty-modal-title').textContent = `Manage Points for ${customer.name}`;
+    $('#current-points').textContent = customer.loyalty_points || 0;
+    $('#points-to-change').value = '';
+    $('#loyalty-modal').classList.remove('hidden');
+}
+
+function closeLoyaltyModal() {
+    $('#loyalty-modal').classList.add('hidden');
+}
+
 
 async function renderAnalytics(container) {
     container.innerHTML = `
@@ -1449,7 +1495,8 @@ const ICONS = {
     take_order: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`,
     orders: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`,
     menu: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M2 6h20M2 18h20"/></svg>`,
-    customers: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    // MODIFICATION: Added loyalty icon
+    loyalty: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>`,
     staff_calls: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
     analytics: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8a5 5 0 0 1-6.4 0l-4.3 4.3a5 5 0 0 1-6.4 0"/><path d="M12.3 19.3a5 5 0 0 1-6.4 0"/><path d="M22 3a5 5 0 0 1-6.4 0"/></svg>`,
     feedback: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>`,
@@ -1463,7 +1510,8 @@ const PAGES = {
     take_order: { title: "Take Order", icon: ICONS.take_order, render: renderTakeOrder },
     orders: { title: "Orders", icon: ICONS.orders, render: renderOrders },
     menu: { title: "Menu", icon: ICONS.menu, render: renderMenu },
-    customers: { title: "Customers", icon: ICONS.customers, render: renderCustomers },
+    // MODIFICATION: Replaced 'customers' with 'loyalty'
+    loyalty: { title: "Loyalty", icon: ICONS.loyalty, render: renderLoyalty },
     staff_calls: { title: "Staff Calls", icon: ICONS.staff_calls, render: renderStaffCalls },
     analytics: { title: "Analytics", icon: ICONS.analytics, render: renderAnalytics },
     feedback: { title: "Feedback", icon: ICONS.feedback, render: renderFeedback },
@@ -1819,6 +1867,49 @@ async function initializeApp() {
     $('#confirm-cancel-btn').addEventListener('click', () => { $('#confirm-modal').classList.add('hidden'); if (state.confirmPromise) state.confirmPromise(false); });
     $('#confirm-ok-btn').addEventListener('click', () => { $('#confirm-modal').classList.add('hidden'); if (state.confirmPromise) state.confirmPromise(true); });
 
+    // MODIFICATION: Add loyalty modal listeners
+    $('#loyalty-cancel-btn').addEventListener('click', closeLoyaltyModal);
+    $('#loyalty-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        // Check which button was clicked
+        const action = e.submitter?.dataset.action;
+        if (!action) return; // Exit if form submitted weirdly (e.g., 'Enter' key)
+
+        const customerId = $('#loyalty-customer-id').value;
+        const points = parseInt($('#points-to-change').value);
+        const submitBtn = e.submitter;
+        
+        if (!customerId || !points || points <= 0) {
+            showToast('Please enter a valid number of points > 0.', true);
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+
+        const rpcName = action === 'add' ? 'increment_loyalty_points' : 'redeem_loyalty_points';
+        const rpcPayload = action === 'add' 
+            ? { customer_id_input: customerId, points_to_add: points } 
+            : { customer_id_input: customerId, points_to_redeem: points };
+
+        const { error } = await supabase.rpc(rpcName, rpcPayload);
+
+        if (error) {
+            showToast(`Error: ${error.message}`, true);
+        } else {
+            showToast(`Successfully ${action}ed ${points} points.`);
+            closeLoyaltyModal();
+            // Refresh the customer list on the loyalty page
+            if (state.currentPage === 'loyalty') {
+                await loadLoyaltyCustomers($('#loyalty-search-input')?.value.trim());
+            }
+        }
+        
+        submitBtn.disabled = false;
+        submitBtn.textContent = action === 'add' ? 'Add' : 'Subtract';
+    });
+
+
     supabase.channel('public-changes')
         .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
             console.log('Realtime Event:', payload);
@@ -1834,7 +1925,8 @@ async function initializeApp() {
             if (state.currentPage === 'orders' && payload.table === 'orders') renderOrders($('#page-content'));
             if (state.currentPage === 'menu' && payload.table === 'products') renderMenu($('#page-content'));
             if (state.currentPage === 'staff_calls' && payload.table === 'staff_calls') renderStaffCalls($('#page-content'));
-            if (state.currentPage === 'customers' && payload.table === 'customers') renderCustomers($('#page-content'));
+            // MODIFICATION: Refresh loyalty page if customers table changes
+            if (state.currentPage === 'loyalty' && payload.table === 'customers') loadLoyaltyCustomers($('#loyalty-search-input')?.value.trim());
             if (state.currentPage === 'feedback' && payload.table === 'feedback') renderFeedback($('#page-content'));
             if (state.currentPage === 'analytics') renderAllCharts();
 
@@ -1918,4 +2010,3 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
-

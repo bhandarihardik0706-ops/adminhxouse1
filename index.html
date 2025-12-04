@@ -799,13 +799,21 @@ async function renderMenu(container) {
                         <label class="text-sm font-medium">Name</label>
                         <input type="text" id="item-name" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border" required>
                     </div>
+                    <!-- MODIFICATION START: Updated Icon/Link/PDF upload fields -->
                     <div>
-                        <label class="text-sm font-medium">Emoji/Icon URL</label>
+                        <label class="text-sm font-medium">Emoji/Icon URL (or PDF Menu Link)</label>
                         <div class="flex items-center space-x-2">
-                           <input type="text" id="item-emoji" placeholder="e.g., 🍔 or https://..." class="w-full mt-1 p-2 bg-secondary rounded-md border border-border">
+                           <input type="text" id="item-emoji" placeholder="e.g., 🍔 or https://link/to/menu.pdf" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border">
                            <button type="button" id="suggest-emoji-btn" class="mt-1 px-3 py-2 bg-secondary rounded-md text-sm hover:bg-muted">Suggest</button>
                         </div>
                     </div>
+                    <div class="border-t border-border/50 pt-4">
+                        <label for="menu-pdf-upload" class="text-sm font-medium">Upload PDF for Icon (Optional)</label>
+                        <p class="text-xs text-muted-foreground mb-2">Upload a PDF file to use its public link as the item's icon/url.</p>
+                        <input type="file" id="menu-pdf-upload" accept=".pdf" class="w-full p-2 bg-secondary rounded-md border border-border">
+                        <button type="button" id="upload-menu-pdf-btn" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium mt-2 disabled:opacity-50">Upload PDF & Get Link</button>
+                    </div>
+                    <!-- MODIFICATION END -->
                     <div>
                         <label class="text-sm font-medium">Category</label>
                         <input type="text" id="item-category" class="w-full mt-1 p-2 bg-secondary rounded-md border border-border" required>
@@ -892,7 +900,10 @@ async function renderMenu(container) {
         $('#modal-title').textContent = item ? 'Edit Menu Item' : 'Add Menu Item';
         $('#item-id').value = item?.id || '';
         $('#item-name').value = item?.name || '';
+        // MODIFICATION: Populate PDF/Icon field
         $('#item-emoji').value = item?.image_url || '';
+        $('#menu-pdf-upload').value = ''; // Clear file input
+        // MODIFICATION END
         $('#item-category').value = item?.category || '';
         $('#item-price').value = item?.price || '';
         // MODIFICATION: Populate description field
@@ -926,6 +937,41 @@ async function renderMenu(container) {
     });
     $('#item-name').addEventListener('blur', suggestAndSetEmoji);
 
+    // MODIFICATION START: PDF Upload logic inside Menu Modal
+    $('#upload-menu-pdf-btn').addEventListener('click', async () => {
+        const fileInput = $('#menu-pdf-upload');
+        const file = fileInput.files[0];
+        const uploadBtn = $('#upload-menu-pdf-btn');
+        const itemName = $('#item-name').value.trim();
+
+        if (!file) { showToast('Please select a PDF file first.', true); return; }
+        if (file.type !== 'application/pdf') { showToast('Only PDF files are supported.', true); return; }
+        if (!itemName) { showToast('Please enter an item name before uploading.', true); return; }
+
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = 'Uploading...';
+        
+        // Use item name and timestamp for unique file path
+        const safeName = itemName.replace(/[^a-zA-Z0-9_\-]/g, '_');
+        const filePath = `menu_icons/${safeName}_${Date.now()}.pdf`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('documents')
+            .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = 'Upload PDF & Get Link';
+
+        if (uploadError) {
+            showToast(`Upload failed: ${uploadError.message}`, true);
+        } else {
+            const publicUrl = supabase.storage.from('documents').getPublicUrl(filePath).data.publicUrl;
+            $('#item-emoji').value = publicUrl; // Set the public URL as the item's image_url
+            showToast('PDF uploaded successfully and link applied!', false);
+            fileInput.value = ''; // Clear the file input
+        }
+    });
+    // MODIFICATION END
 
     $('#menu-item-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -934,10 +980,10 @@ async function renderMenu(container) {
         saveBtn.textContent = 'Saving...';
         
         const id = $('#item-id').value;
-        // MODIFICATION: Include description in the saved data
+        // MODIFICATION: Use the value from the item-emoji input (which now accepts icon, url, or uploaded PDF link)
         const itemData = {
             name: $('#item-name').value,
-            image_url: $('#item-emoji').value,
+            image_url: $('#item-emoji').value, 
             category: $('#item-category').value,
             price: parseFloat($('#item-price').value),
             description: $('#item-description').value,

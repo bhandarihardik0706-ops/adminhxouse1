@@ -3,95 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HXOUSE Admin | Live Terminal v2.5</title>
+    <title>HXOUSE | Admin Collective</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator/qrcode.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            --background-light: #f7f8fa; --foreground-light: #1a1a1a; --card-light: #ffffff; --card-foreground-light: #1a1a1a; --primary-light: #1a1a1a; --primary-foreground-light: #ffffff; --secondary-light: #f1f2f4; --secondary-foreground-light: #1a1a1a; --muted-light: #e6e8eb; --muted-foreground-light: #6b7280; --border-light: #e0e2e7; --destructive-light: #ef4444;
-            --background-dark: #121212; --foreground-dark: #fafafa; --card-dark: #1c1c1c; --card-foreground-dark: #fafafa; --primary-dark: #fafafa; --primary-foreground-dark: #121212; --secondary-dark: #2a2a2a; --secondary-foreground-dark: #fafafa; --muted-dark: #2a2a2a; --muted-foreground-dark: #a1a1aa; --border-dark: #3a3a3a; --destructive-dark: #b91c1c;
+            --background-light: #f7f8fa; --foreground-light: #111827; --card-light: #ffffff; --card-foreground-light: #111827; --primary-light: #111827; --primary-foreground-light: #ffffff; --border-light: #e0e2e7;
+            --background-dark: #0A0A0A; --foreground-dark: #fafafa; --card-dark: #141414; --card-foreground-dark: #fafafa; --primary-dark: #fafafa; --primary-foreground-dark: #121212; --border-dark: #1F1F1F;
         }
-        .light { --background: var(--background-light); --foreground: var(--foreground-light); --card: var(--card-light); --card-foreground: var(--card-foreground-light); --primary: var(--primary-light); --primary-foreground: var(--primary-foreground-light); --secondary: var(--secondary-light); --secondary-foreground: var(--secondary-foreground-light); --muted: var(--muted-light); --muted-foreground: var(--muted-foreground-light); --border: var(--border-light); --destructive: var(--destructive-light); }
-        .dark { --background: var(--background-dark); --foreground: var(--foreground-dark); --card: var(--card-dark); --card-foreground: var(--card-foreground-dark); --primary: var(--primary-dark); --primary-foreground: var(--primary-foreground-dark); --secondary: var(--secondary-dark); --secondary-foreground: var(--secondary-foreground-dark); --muted: var(--muted-dark); --muted-foreground: var(--muted-foreground-dark); --border: var(--border-dark); --destructive: var(--destructive-dark); }
+        .light { --background: var(--background-light); --foreground: var(--foreground-light); --card: var(--card-light); --card-foreground: var(--card-foreground-light); --primary: var(--primary-light); --primary-foreground: var(--primary-foreground-light); --border: var(--border-light); }
+        .dark { --background: var(--background-dark); --foreground: var(--foreground-dark); --card: var(--card-dark); --card-foreground: var(--card-foreground-dark); --primary: var(--primary-dark); --primary-foreground: var(--primary-foreground-dark); --border: var(--border-dark); }
         
-        body { background-color: var(--background); color: var(--foreground); font-family: 'Poppins', sans-serif; overflow-x: hidden; height: 100vh; }
-        .bg-card { background-color: var(--card); } .border-border { border-color: var(--border); }
-        .bg-primary { background-color: var(--primary); } .text-primary-foreground { color: var(--primary-foreground); }
-        .bg-secondary { background-color: var(--secondary); } .text-muted-foreground { color: var(--muted-foreground); }
-        .fade-in { animation: fadeIn 0.3s ease-out; } @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        body { background-color: var(--background); color: var(--foreground); font-family: 'Poppins', sans-serif; overflow: hidden; }
+        .bg-card { background-color: var(--card); } 
+        .border-border { border-color: var(--border); } 
+        .bg-primary { background-color: var(--primary); }
+        .text-primary-foreground { color: var(--primary-foreground); } 
         
+        .fade-in { animation: fadeIn 0.4s ease-out; } 
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+
         @media print {
             body > *:not(#printable-area) { display: none !important; }
-            #printable-area, #printable-area * { visibility: visible; }
-            #printable-area { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
+            #printable-area { display: block !important; width: 100%; position: absolute; top: 0; left: 0; background: white; color: black; }
         }
 
-        .spinner { border: 2px solid rgba(0,0,0,0.1); border-top: 2px solid var(--primary); border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        .status-badge { padding: 4px 12px; border-radius: 99px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+        .status-received { background: #dbeafe; color: #1e40af; }
+        .status-preparing { background: #fef3c7; color: #92400e; }
+        .status-delivered { background: #dcfce7; color: #166534; }
+        .status-cancelled { background: #fee2e2; color: #991b1b; }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="antialiased">
-
-    <!-- Auth Layer -->
-    <div id="login-screen" class="fixed inset-0 bg-secondary flex items-center justify-center z-[100]">
-        <div class="w-full max-w-sm bg-card p-10 rounded-2xl shadow-2xl border border-border">
-            <h2 class="text-3xl font-black text-center mb-2 uppercase tracking-tighter italic">HXOUSE ADMIN</h2>
-            <p class="text-center text-muted-foreground text-sm mb-10">Production Terminal</p>
-            <form id="login-form" class="space-y-4">
-                <input type="email" id="email" placeholder="Admin Email" class="w-full p-4 bg-secondary rounded-xl border border-border font-bold outline-none focus:border-primary" required>
-                <input type="password" id="password" placeholder="Password" class="w-full p-4 bg-secondary rounded-xl border border-border font-bold outline-none focus:border-primary" required>
-                <p id="login-error" class="text-destructive text-xs font-black text-center h-4 uppercase"></p>
-                <button type="submit" class="w-full bg-primary text-primary-foreground font-black py-5 rounded-xl shadow-lg transform active:scale-95 transition">AUTHENTICATE</button>
+    <!-- Login Screen -->
+    <div id="login-screen" class="fixed inset-0 bg-black flex items-center justify-center z-[100]">
+        <div class="w-full max-w-sm bg-card p-10 rounded-[3rem] shadow-2xl border border-border text-center">
+            <div class="mb-8">
+                <h2 class="text-3xl font-black tracking-tighter uppercase">Admin Desk</h2>
+                <p class="text-[9px] font-black uppercase tracking-[0.5em] text-muted-foreground opacity-60">Collective Engine v4.3</p>
+            </div>
+            <form id="login-form" class="space-y-4 text-left">
+                <div>
+                    <label class="text-[10px] font-black uppercase ml-2 opacity-50">Admin Email</label>
+                    <input type="email" id="email" class="w-full p-4 bg-secondary rounded-2xl border border-border font-bold text-sm outline-none focus:border-primary transition-all" placeholder="admin@hxouse.com" required>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black uppercase ml-2 opacity-50">Secret Key</label>
+                    <input type="password" id="password" class="w-full p-4 bg-secondary rounded-2xl border border-border font-bold text-sm outline-none focus:border-primary transition-all" placeholder="••••••••" required>
+                </div>
+                <p id="login-error" class="text-red-500 text-[10px] font-bold text-center h-4"></p>
+                <button type="submit" id="login-submit" class="w-full bg-primary text-primary-foreground font-black py-5 rounded-2xl uppercase tracking-widest active:scale-95 transition mt-4">Access Console</button>
             </form>
         </div>
     </div>
 
-    <!-- Main Application -->
-    <div id="app-container" class="hidden flex h-screen bg-background overflow-hidden">
-        <!-- Persistent Sidebar -->
-        <aside class="w-72 bg-card border-r border-border flex flex-col hidden lg:flex">
-            <div class="h-20 flex items-center px-10 border-b border-border">
-                <h1 class="text-xl font-black tracking-tighter uppercase italic">HXOUSE<span class="text-muted-foreground opacity-30 not-italic">.POS</span></h1>
+    <!-- Main Container -->
+    <div id="app-container" class="hidden h-screen flex overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-72 bg-card border-r border-border flex flex-col flex-shrink-0">
+            <div class="h-24 flex items-center justify-center border-b border-border">
+                <img src="https://ttdnlatylcqrevzlyrru.supabase.co/storage/v1/object/public/assets/Untitled%20design_20251008_093211_0000.png" class="h-12 w-auto" alt="Logo">
             </div>
-            <nav id="sidebar-nav" class="flex-grow p-6 space-y-2 overflow-y-auto"></nav>
-            <div class="p-6 border-t border-border space-y-4">
-                <div id="user-email" class="text-[10px] font-black uppercase opacity-30 px-4 truncate tracking-widest"></div>
-                <button id="logout-btn" class="w-full flex items-center px-4 py-3 text-xs font-black text-destructive hover:bg-destructive/10 rounded-xl transition uppercase tracking-[0.2em]">Logout Session</button>
+            <nav id="sidebar-nav" class="flex-grow p-6 space-y-2 overflow-y-auto no-scrollbar"></nav>
+            <div class="p-6 border-t border-border space-y-3">
+                <div class="flex gap-2">
+                    <button id="theme-toggle" class="flex-1 p-4 rounded-2xl bg-secondary flex justify-center hover:opacity-80 transition"><span class="text-lg">🌓</span></button>
+                    <button id="logout-btn" class="flex-1 p-4 rounded-2xl bg-red-500 text-white font-black text-[10px] uppercase hover:bg-red-600 transition">SIGNOUT</button>
+                </div>
             </div>
         </aside>
 
-        <!-- Dynamic Content Area -->
-        <main class="flex-1 flex flex-col min-w-0">
-            <header class="h-16 bg-card border-b border-border flex items-center justify-between px-8 flex-shrink-0">
-                <div class="flex items-center space-x-4">
-                    <h2 id="page-title" class="text-[10px] font-black uppercase tracking-[0.4em] opacity-50">Dashboard</h2>
-                </div>
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden bg-background">
+            <header class="h-24 bg-card border-b border-border flex items-center justify-between px-10 flex-shrink-0">
+                <h2 id="page-title" class="text-2xl font-black uppercase tracking-tight">Command Center</h2>
                 <div class="flex items-center space-x-6">
-                    <button id="theme-toggle" class="p-2 hover:bg-secondary rounded-lg transition-colors">🌓</button>
-                    <div class="flex items-center space-x-3 bg-green-500/10 px-4 py-1.5 rounded-full border border-green-500/20">
-                        <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                        <span class="text-[10px] font-black uppercase text-green-600 tracking-widest">Live Syncing</span>
+                    <div class="text-right">
+                        <p id="user-email" class="text-[11px] font-black uppercase opacity-40 leading-none mb-1"></p>
+                        <p class="text-[10px] font-black text-green-500 uppercase flex items-center justify-end">
+                            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span> Project: ttdnlatyl
+                        </p>
                     </div>
                 </div>
             </header>
-
-            <div id="page-content" class="flex-1 overflow-y-auto p-4 md:p-10 space-y-10"></div>
+            <div id="page-content" class="flex-1 overflow-y-auto p-10 space-y-10 no-scrollbar"></div>
         </main>
     </div>
-
-    <!-- UI Overlay Components -->
-    <div id="toast" class="hidden fixed bottom-10 right-10 bg-primary text-primary-foreground py-5 px-10 rounded-2xl shadow-2xl z-[200] font-black text-xs uppercase tracking-[0.2em]">
-        <p id="toast-message"></p>
+    
+    <!-- Real-time Order Alert Modal -->
+    <div id="alert-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[1000] p-6 backdrop-blur-xl">
+        <div id="alert-modal-content" class="bg-card p-12 rounded-[4rem] text-center w-full max-w-md border-4 border-primary shadow-2xl"></div>
     </div>
 
-    <div id="alert-modal" class="hidden fixed inset-0 bg-black/98 flex items-center justify-center z-[110] p-6 backdrop-blur-xl">
-        <div id="alert-modal-content" class="bg-card p-12 rounded-[3.5rem] shadow-2xl text-center w-full max-w-md border border-border transform scale-in"></div>
+    <!-- Loyalty / Points Adjustment Modal -->
+    <div id="loyalty-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-md">
+        <div class="bg-card rounded-[2.5rem] shadow-2xl p-10 w-full max-w-sm border border-border">
+            <h3 class="text-xl font-black uppercase tracking-tight mb-4">Adjust Points</h3>
+            <p id="loyalty-member-name" class="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-8"></p>
+            <div class="space-y-6">
+                <div>
+                    <label class="text-[10px] font-black uppercase opacity-50">Points Delta</label>
+                    <input type="number" id="points-delta" class="w-full p-4 bg-secondary rounded-xl border border-border font-black text-2xl text-center outline-none" placeholder="0">
+                </div>
+                <div class="flex gap-2 pt-4">
+                    <button onclick="updateMemberPoints('add')" class="flex-1 bg-green-500 text-white font-black py-4 rounded-xl uppercase text-xs active:scale-95 transition">Add</button>
+                    <button onclick="updateMemberPoints('subtract')" class="flex-1 bg-red-500 text-white font-black py-4 rounded-xl uppercase text-xs active:scale-95 transition">Deduct</button>
+                </div>
+                <button onclick="$('#loyalty-modal').classList.add('hidden')" class="w-full font-black text-[10px] uppercase opacity-20 hover:opacity-100 transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Menu Modal -->
+    <div id="menu-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-md">
+        <div class="bg-card rounded-[3rem] shadow-2xl p-10 w-full max-w-md border border-border">
+            <h3 id="menu-modal-title" class="text-2xl font-black uppercase tracking-tight mb-8">Add Product</h3>
+            <form id="product-form" class="space-y-4">
+                <input type="hidden" id="prod-id">
+                <input type="text" id="prod-name" class="w-full p-4 bg-secondary border border-border rounded-xl font-bold text-sm" placeholder="Product Name" required>
+                <input type="text" id="prod-category" class="w-full p-4 bg-secondary border border-border rounded-xl font-bold text-sm" placeholder="Category (e.g. Coffee)" required>
+                <input type="number" id="prod-price" class="w-full p-4 bg-secondary border border-border rounded-xl font-bold text-sm" placeholder="Price (INR)" required>
+                <div class="flex items-center gap-3 p-4 bg-secondary rounded-xl border border-border">
+                    <input type="checkbox" id="prod-available" checked class="w-5 h-5 accent-primary">
+                    <label class="text-xs font-black uppercase opacity-60">Is Available</label>
+                </div>
+                <div class="flex gap-2 pt-6">
+                    <button type="button" onclick="$('#menu-modal').classList.add('hidden')" class="flex-1 bg-secondary font-black py-4 rounded-2xl uppercase text-xs">Cancel</button>
+                    <button type="submit" class="flex-1 bg-primary text-primary-foreground font-black py-4 rounded-2xl uppercase text-xs">Save Item</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div id="printable-area" class="hidden"></div>
@@ -99,441 +152,445 @@
 
 <script>
 /**
- * HXOUSE ADMIN ENGINE PRO
- * Fully Linked to Project: ttdnlatylcqrevzlyrru
+ * HXOUSE ADMIN COLLECTIVE v4.3
+ * Connected to: ttdnlatylcqrevzlyrru
  */
+
+const SUPABASE_URL = 'https://ttdnlatylcqrevzlyrru.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_sa3-9lIjYHxS69C6_8Ux4w_Qy37aAt1';
+const sb = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
-const SUPABASE_URL = 'https://ttdnlatylcqrevzlyrru.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0ZG5sYXR5bGNxcmV2emx5cnJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxNzAyMDEsImV4cCI6MjA3NTc0NjIwMX0.aiQ1_viA1JrugEyMWxA2e5f2Aqrao9BNgCTb70NWyCc';
-
-const sb = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 const state = {
     currentPage: 'dashboard',
     user: null,
-    audioReady: false,
-    settings: {},
-    menuItems: [],
-    posCart: [],
-    activeTable: null
+    audioInitialized: false,
+    theme: 'light',
+    selectedMember: null
 };
 
 const PAGES = {
-    dashboard: { title: "Live Analytics", render: renderDashboard },
-    orders: { title: "Orders Console", render: renderOrders },
-    pos: { title: "POS Terminal", render: renderPOS },
-    inventory: { title: "Menu Editor", render: renderMenu },
-    crm: { title: "Customer Loyalty", render: renderCRM },
-    alerts: { title: "Service Alerts", render: renderAlerts },
-    reports: { title: "Revenue Logs", render: renderReports },
-    config: { title: "Engine Config", render: renderSettings }
+    dashboard: { title: "Dashboard", icon: "📊", render: renderDashboard },
+    orders: { title: "Live Orders", icon: "🍱", render: renderOrders },
+    menu: { title: "Menu Editor", icon: "📜", render: renderMenu },
+    loyalty: { title: "Loyalty Desk", icon: "💎", render: renderLoyalty },
+    qr: { title: "QR Generator", icon: "🔲", render: renderQR },
+    settings: { title: "Settings", icon: "⚙️", render: renderSettings }
 };
 
 // --- INITIALIZATION ---
 
-async function initAdmin() {
+async function initializeApp() {
     $('#login-screen').classList.add('hidden');
     $('#app-container').classList.remove('hidden');
     $('#user-email').textContent = state.user.email;
-
-    await refreshGlobalData();
-    setupAdminRealtime();
-    navigateTo('dashboard');
     
+    applyTheme(localStorage.getItem('admin_theme') || 'light');
+    renderSidebar();
+    navigateTo('dashboard');
+
     document.body.addEventListener('click', () => {
-        if (!state.audioReady) {
+        if (!state.audioInitialized) {
             const audio = $('#notification-sound');
-            audio.play().then(() => { audio.pause(); state.audioReady = true; }).catch(()=>{});
+            audio.play().then(() => { audio.pause(); state.audioInitialized = true; });
         }
     }, { once: true });
-}
 
-async function refreshGlobalData() {
-    const { data: set } = await sb.from('app_settings').select('*');
-    state.settings = (set || []).reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {});
-    
-    const { data: menu } = await sb.from('products').select('*').order('name');
-    state.menuItems = menu || [];
+    // Real-time listener for incoming orders from ttdnlatylcqrevzlyrru
+    sb.channel('admin-updates')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, async (payload) => {
+          playAlert();
+          showNewOrderModal(payload.new);
+          if (state.currentPage === 'dashboard' || state.currentPage === 'orders') renderCurrentPage();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => {
+          if (state.currentPage === 'orders') renderCurrentPage();
+      })
+      .subscribe();
 }
 
 function navigateTo(page) {
     state.currentPage = page;
-    const container = $('#page-content');
-    $('#page-title').textContent = PAGES[page].title;
-    
-    $('#sidebar-nav').innerHTML = Object.keys(PAGES).map(key => `
-        <button onclick="navigateTo('${key}')" class="w-full flex items-center px-8 py-5 text-[11px] font-black uppercase tracking-[0.3em] rounded-2xl transition-all ${state.currentPage === key ? 'bg-primary text-primary-foreground shadow-2xl scale-105 italic' : 'text-muted-foreground hover:bg-secondary'}">
-            ${PAGES[key].title}
+    renderSidebar();
+    renderCurrentPage();
+}
+
+function renderSidebar() {
+    const nav = $('#sidebar-nav');
+    nav.innerHTML = Object.keys(PAGES).map(key => `
+        <button onclick="navigateTo('${key}')" class="w-full flex items-center px-6 py-4 text-[10px] font-black uppercase tracking-[0.25em] rounded-2xl transition-all ${state.currentPage === key ? 'bg-primary text-primary-foreground shadow-xl' : 'text-muted-foreground hover:bg-secondary'}">
+            <span class="mr-4 text-xl">${PAGES[key].icon}</span> ${PAGES[key].title}
         </button>
     `).join('');
-
-    container.innerHTML = `<div class="p-20 text-center"><div class="spinner mx-auto mb-6"></div><p class="text-[10px] font-black uppercase opacity-40 tracking-[0.5em]">Establishing Sync...</p></div>`;
-    PAGES[page].render(container);
 }
 
-function setupAdminRealtime() {
-    sb.channel('admin-terminal').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, async (p) => {
-        if (state.audioReady) $('#notification-sound').play();
-        triggerModalAlert("NEW ORDER RECEIVED", `AMOUNT: ₹${p.new.total_amount}`, 'orders');
-        if (['dashboard', 'orders'].includes(state.currentPage)) navigateTo(state.currentPage);
-    }).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'staff_calls' }, async (p) => {
-        if (state.audioReady) $('#notification-sound').play();
-        triggerModalAlert("SERVICE CALL", "Table assistance required!", 'alerts');
-        if (['dashboard', 'alerts'].includes(state.currentPage)) navigateTo(state.currentPage);
-    }).subscribe();
+function renderCurrentPage() {
+    const c = $('#page-content');
+    $('#page-title').textContent = PAGES[state.currentPage].title;
+    PAGES[state.currentPage].render(c);
 }
 
-function triggerModalAlert(title, sub, page) {
+// --- RENDERERS ---
+
+async function renderDashboard(c) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const { data: orders } = await sb.from('orders').select('*').gte('created_at', today.toISOString());
+    
+    const totalRevenue = orders?.reduce((acc, o) => acc + (o.total_amount || 0), 0) || 0;
+    const pendingCount = orders?.filter(o => o.status === 'received' || o.status === 'preparing').length || 0;
+
+    c.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 fade-in">
+            <div class="bg-card p-12 rounded-[3.5rem] border border-border shadow-sm">
+                <p class="text-[10px] font-black uppercase opacity-40 mb-2 tracking-widest text-muted-foreground">Today's Revenue</p>
+                <h3 class="text-6xl font-black tracking-tighter">₹${totalRevenue.toFixed(0)}</h3>
+            </div>
+            <div class="bg-card p-12 rounded-[3.5rem] border border-border shadow-sm">
+                <p class="text-[10px] font-black uppercase opacity-40 mb-2 tracking-widest text-muted-foreground">Active Orders</p>
+                <h3 class="text-6xl font-black tracking-tighter">${pendingCount}</h3>
+            </div>
+            <div class="bg-card p-12 rounded-[3.5rem] border border-border shadow-sm">
+                <p class="text-[10px] font-black uppercase opacity-40 mb-2 tracking-widest text-muted-foreground">Logged Tickets</p>
+                <h3 class="text-6xl font-black tracking-tighter">${orders?.length || 0}</h3>
+            </div>
+        </div>
+        
+        <div class="bg-card p-12 rounded-[3.5rem] border border-border fade-in">
+            <h3 class="font-black text-xl mb-10 uppercase tracking-tighter">Live Activity Feed</h3>
+            <div class="space-y-4">
+                ${orders?.slice(0, 5).reverse().map(o => `
+                    <div class="p-8 bg-secondary rounded-[2.5rem] flex justify-between items-center border border-border">
+                        <div>
+                            <p class="font-black text-sm uppercase tracking-tight">Order #${o.id.slice(0,5)} • Table ${o.table_id || '?'}</p>
+                            <p class="text-[10px] opacity-40 font-bold uppercase mt-1">${new Date(o.created_at).toLocaleTimeString()}</p>
+                        </div>
+                        <span class="status-badge status-${o.status}">${o.status}</span>
+                    </div>
+                `).join('') || '<p class="text-center py-20 opacity-20 uppercase font-black text-xs tracking-widest">Awaiting activity...</p>'}
+            </div>
+        </div>
+    `;
+}
+
+async function renderOrders(c) {
+    const { data: orders } = await sb.from('orders').select('*, tables(table_number)').order('created_at', { ascending: false }).limit(50);
+    
+    c.innerHTML = `
+        <div class="bg-card p-12 rounded-[4rem] border border-border shadow-xl fade-in">
+            <div class="grid grid-cols-6 gap-4 font-black text-[11px] uppercase opacity-40 pb-8 border-b border-border mb-8 px-6">
+                <div>Ref ID</div><div>Table</div><div>Total</div><div>Stage</div><div>Timestamp</div><div class="text-right">Action</div>
+            </div>
+            <div class="space-y-4">
+                ${orders?.map(o => `
+                    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-center p-8 bg-secondary rounded-[2.5rem] border border-transparent hover:border-border hover:scale-[1.01] transition-all">
+                        <div class="font-black text-xs font-mono">#${o.id.slice(0,8)}</div>
+                        <div class="font-black text-sm uppercase tracking-tighter">Spot ${o.tables?.table_number || o.table_id || '?'}</div>
+                        <div class="font-black text-sm">₹${o.total_amount.toFixed(0)}</div>
+                        <div>
+                            <select onchange="updateOrderStatus('${o.id}', this.value)" class="bg-primary text-primary-foreground text-[10px] font-black uppercase rounded-full px-6 py-4 outline-none cursor-pointer">
+                                <option value="received" ${o.status === 'received' ? 'selected' : ''}>Received</option>
+                                <option value="preparing" ${o.status === 'preparing' ? 'selected' : ''}>Preparing</option>
+                                <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>Ready</option>
+                                <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>Void</option>
+                            </select>
+                        </div>
+                        <div class="text-[10px] font-bold opacity-40 uppercase tracking-widest">${new Date(o.created_at).toLocaleTimeString()}</div>
+                        <div class="flex justify-end gap-2">
+                            <button onclick="printBill('${o.id}')" class="bg-white border-2 border-border text-black font-black text-[9px] uppercase px-6 py-3 rounded-full hover:bg-black hover:text-white transition">Bill</button>
+                        </div>
+                    </div>
+                `).join('') || '<p class="text-center py-24 opacity-20 uppercase font-black text-xs tracking-widest">No orders in system</p>'}
+            </div>
+        </div>
+    `;
+}
+
+async function renderMenu(c) {
+    const { data: products } = await sb.from('products').select('*').order('category', { ascending: true });
+
+    c.innerHTML = `
+        <div class="flex justify-between items-center mb-10">
+            <h3 class="text-3xl font-black uppercase tracking-tight">HX-Menu</h3>
+            <button onclick="openMenuModal()" class="bg-primary text-primary-foreground px-12 py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-widest active:scale-95 transition shadow-lg">New Item</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 fade-in">
+            ${products?.map(p => `
+                <div class="bg-card p-10 rounded-[3.5rem] border border-border shadow-sm relative group overflow-hidden transition-all hover:border-primary">
+                    <div class="absolute top-0 right-0 p-6">
+                        <span class="text-[9px] font-black uppercase px-4 py-2 rounded-full ${p.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${p.is_available ? 'Active' : 'Stock Out'}
+                        </span>
+                    </div>
+                    <div class="mb-6 opacity-30 text-5xl">☕</div>
+                    <h4 class="text-2xl font-black uppercase tracking-tighter mb-1">${p.name}</h4>
+                    <p class="text-[10px] opacity-40 font-black uppercase mb-8 tracking-widest">${p.category}</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-3xl font-black tracking-tighter">₹${p.price}</span>
+                        <div class="flex gap-2">
+                            <button onclick="editProduct('${p.id}')" class="p-4 bg-secondary rounded-2xl hover:bg-muted transition text-lg">✏️</button>
+                            <button onclick="deleteProduct('${p.id}')" class="p-4 bg-secondary rounded-2xl hover:bg-red-50 text-red-500 transition text-lg">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('') || '<p class="col-span-full text-center py-24 opacity-20 uppercase font-black text-xs tracking-widest">Menu is currently empty</p>'}
+        </div>
+    `;
+}
+
+async function renderLoyalty(c) {
+    c.innerHTML = `
+        <div class="max-w-4xl mx-auto bg-card p-16 rounded-[4rem] border border-border shadow-xl fade-in">
+            <h3 class="text-3xl font-black uppercase tracking-tighter mb-2">Member Loyalty</h3>
+            <p class="text-[10px] font-black opacity-40 uppercase tracking-widest mb-12">Search members to adjust wallet</p>
+            <div class="flex gap-4 mb-16">
+                <input type="text" id="loyalty-search" class="flex-1 p-7 bg-secondary border border-border rounded-[2.5rem] font-bold text-sm outline-none focus:border-primary shadow-inner" placeholder="Member ID, Name or Phone...">
+                <button onclick="searchLoyaltyMembers()" class="bg-primary text-primary-foreground px-14 rounded-[2.5rem] font-black uppercase text-xs tracking-widest active:scale-95 transition shadow-lg">Find Member</button>
+            </div>
+            <div id="loyalty-results" class="space-y-6">
+                <div class="p-20 text-center opacity-20 uppercase font-black text-xs tracking-widest italic">Ready for search query...</div>
+            </div>
+        </div>
+    `;
+}
+
+function renderQR(c) {
+    c.innerHTML = `
+        <div class="max-w-xl mx-auto bg-card p-16 rounded-[4rem] border border-border shadow-xl text-center fade-in">
+            <h3 class="text-3xl font-black uppercase tracking-tighter mb-2">QR Engine</h3>
+            <p class="text-[10px] font-black uppercase opacity-40 tracking-[0.5em] mb-14">Generate Table Sync Links</p>
+            
+            <div class="space-y-8 mb-16">
+                <input type="number" id="qr-table" class="w-full p-10 bg-secondary border border-border rounded-[3rem] font-black text-center text-5xl outline-none shadow-inner" placeholder="00">
+                <button onclick="generateQR()" class="w-full bg-primary text-primary-foreground py-8 rounded-[3rem] font-black uppercase text-xs tracking-widest active:scale-95 transition shadow-xl">Build Link</button>
+            </div>
+            
+            <div id="qr-display" class="hidden flex flex-col items-center">
+                <div id="qr-img" class="p-10 bg-white rounded-[3.5rem] shadow-2xl mb-12 border-8 border-secondary"></div>
+                <button onclick="window.print()" class="text-[11px] font-black uppercase tracking-[0.6em] border-b-2 border-primary pb-1 hover:opacity-50 transition">Print Verification QR</button>
+            </div>
+        </div>
+    `;
+}
+
+function renderSettings(c) {
+    c.innerHTML = `
+        <div class="max-w-3xl mx-auto bg-card p-16 rounded-[4rem] border border-border shadow-xl fade-in">
+            <h3 class="text-3xl font-black uppercase tracking-tighter mb-14">App Logic</h3>
+            <div class="space-y-10">
+                <div class="p-10 bg-secondary rounded-[3rem] flex justify-between items-center shadow-inner">
+                    <div>
+                        <h4 class="font-black uppercase text-base mb-1">Live Notifications</h4>
+                        <p class="text-[10px] opacity-50 font-bold uppercase tracking-widest">Audio chime on new order</p>
+                    </div>
+                    <div class="w-16 h-8 bg-green-500 rounded-full relative cursor-pointer shadow-inner"><div class="absolute right-1 top-1 w-6 h-6 bg-white rounded-full"></div></div>
+                </div>
+                <div class="p-10 bg-secondary rounded-[3rem] flex justify-between items-center shadow-inner">
+                    <div>
+                        <h4 class="font-black uppercase text-base mb-1">POS Engine Link</h4>
+                        <p class="text-[10px] opacity-50 font-bold uppercase tracking-widest text-primary">Connected to ttdnlatyl</p>
+                    </div>
+                    <div class="w-16 h-8 bg-green-500 rounded-full relative cursor-pointer shadow-inner"><div class="absolute right-1 top-1 w-6 h-6 bg-white rounded-full"></div></div>
+                </div>
+                <div class="pt-16 border-t border-border">
+                    <p class="text-[10px] font-black uppercase opacity-20 text-center tracking-[1.5em]">Enterprise Core v4.3.0</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// --- CORE LOGIC ---
+
+async function updateOrderStatus(id, status) {
+    const { error } = await sb.from('orders').update({ status }).eq('id', id);
+    if (!error) showToast(`Reference stage set: ${status.toUpperCase()}`);
+    else showToast("Communication Error", true);
+}
+
+async function searchLoyaltyMembers() {
+    const q = $('#loyalty-search').value;
+    const res = $('#loyalty-results');
+    const { data } = await sb.from('customers').select('*').or(`name.ilike.%${q}%,whatsapp_number.ilike.%${q}%`);
+    
+    if (!data || data.length === 0) {
+        res.innerHTML = `<div class="p-24 text-center opacity-20 uppercase font-black text-xs tracking-widest">Identity not found</div>`;
+        return;
+    }
+
+    res.innerHTML = data.map(m => `
+        <div class="p-12 bg-secondary rounded-[3.5rem] flex justify-between items-center border border-border shadow-sm hover:border-primary transition duration-300">
+            <div>
+                <h4 class="font-black uppercase text-3xl tracking-tighter mb-2">${m.name}</h4>
+                <p class="text-xs font-bold opacity-40 tracking-[0.2em] uppercase">+91 ${m.whatsapp_number}</p>
+            </div>
+            <div class="text-right">
+                <p class="text-[10px] font-black uppercase opacity-30 tracking-widest mb-1 leading-none">Wallet</p>
+                <p class="text-6xl font-black tracking-tighter leading-none mb-6">${m.loyalty_points}</p>
+                <button onclick="openLoyaltyAdjustment('${m.id}', '${m.name}', ${m.loyalty_points})" class="bg-primary text-primary-foreground px-10 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition shadow-lg">Edit Wallet</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function openLoyaltyAdjustment(id, name, current) {
+    state.selectedMember = { id, name, current };
+    $('#loyalty-member-name').textContent = `${name} (Currently ${current} Pts)`;
+    $('#loyalty-modal').classList.remove('hidden');
+}
+
+async function updateMemberPoints(action) {
+    const delta = parseInt($('#points-delta').value) || 0;
+    if (delta <= 0) return showToast("Invalid amount", true);
+    
+    const newPts = action === 'add' ? state.selectedMember.current + delta : Math.max(0, state.selectedMember.current - delta);
+    
+    const { error } = await sb.from('customers').update({ loyalty_points: newPts }).eq('id', state.selectedMember.id);
+    if (!error) {
+        showToast(`Wallet updated to ${newPts}`);
+        $('#loyalty-modal').classList.add('hidden');
+        searchLoyaltyMembers();
+    } else showToast("Wallet Sync Error", true);
+}
+
+function generateQR() {
+    const table = $('#qr-table').value;
+    if (!table) return;
+    const url = `https://hxouse1.onrender.com/?table=${table}`;
+    const qr = qrcode(0, 'H');
+    qr.addData(url);
+    qr.make();
+    $('#qr-img').innerHTML = qr.createImgTag(12, 0);
+    $('#qr-display').classList.remove('hidden');
+}
+
+// --- MENU LOGIC ---
+
+function openMenuModal() {
+    $('#prod-id').value = '';
+    $('#product-form').reset();
+    $('#menu-modal-title').textContent = "Add Product";
+    $('#menu-modal').classList.remove('hidden');
+}
+
+async function editProduct(id) {
+    const { data } = await sb.from('products').select('*').eq('id', id).single();
+    if (data) {
+        $('#prod-id').value = data.id;
+        $('#prod-name').value = data.name;
+        $('#prod-category').value = data.category;
+        $('#prod-price').value = data.price;
+        $('#prod-available').checked = data.is_available;
+        $('#menu-modal-title').textContent = "Edit Product";
+        $('#menu-modal').classList.remove('hidden');
+    }
+}
+
+$('#product-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = $('#prod-id').value;
+    const item = {
+        name: $('#prod-name').value,
+        category: $('#prod-category').value,
+        price: parseFloat($('#prod-price').value),
+        is_available: $('#prod-available').checked
+    };
+
+    const { error } = id ? await sb.from('products').update(item).eq('id', id) : await sb.from('products').insert([item]);
+    
+    if (!error) {
+        showToast(`Product ${id ? 'Updated' : 'Added'}`);
+        $('#menu-modal').classList.add('hidden');
+        renderMenu($('#page-content'));
+    } else showToast("Menu Sync Error", true);
+});
+
+async function deleteProduct(id) {
+    if (confirm("Permanently purge this item from the collective menu?")) {
+        await sb.from('products').delete().eq('id', id);
+        renderMenu($('#page-content'));
+        showToast("Product Purged");
+    }
+}
+
+// --- UTILS ---
+
+function showToast(m, e = false) {
+    const t = $('#toast'); $('#toast-message').textContent = m.toUpperCase();
+    t.className = `fixed bottom-10 right-10 text-white py-5 px-12 rounded-[2.5rem] shadow-2xl text-[10px] font-black uppercase tracking-widest z-[200] ${e ? 'bg-red-500' : 'bg-black'}`;
+    t.classList.remove('hidden', 'fade-in'); void t.offsetWidth; t.classList.add('fade-in');
+    setTimeout(() => t.classList.add('hidden'), 2500);
+}
+
+function playAlert() {
+    if (state.audioInitialized) {
+        const a = $('#notification-sound'); a.currentTime = 0; a.play().catch(() => {});
+    }
+}
+
+function showNewOrderModal(order) {
     const modal = $('#alert-modal');
     $('#alert-modal-content').innerHTML = `
-        <h2 class="text-4xl font-black mb-4 text-primary uppercase tracking-tighter italic">${title}</h2>
-        <p class="text-muted-foreground mb-12 font-bold uppercase text-xs tracking-widest leading-relaxed">${sub}</p>
-        <div class="flex space-x-4">
-            <button onclick="dismissAlert()" class="flex-1 bg-secondary py-6 rounded-3xl font-black text-[10px] uppercase tracking-widest">Ignore</button>
-            <button onclick="dismissAlert(); navigateTo('${page}')" class="flex-1 bg-primary text-primary-foreground py-6 rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-2xl">Manage Now</button>
+        <div class="flex flex-col items-center">
+            <div class="w-36 h-36 bg-green-500 rounded-full flex items-center justify-center mb-12 shadow-[0_0_50px_rgba(34,197,94,0.4)] animate-bounce">
+                <span class="text-7xl">📦</span>
+            </div>
+            <h2 class="text-6xl font-black uppercase tracking-tighter leading-none mb-4">INCOMING <br> TICKET</h2>
+            <p class="text-sm font-black opacity-40 uppercase tracking-[0.8em] mb-16">TABLE #${order.table_id || order.table_number_input || '?'}</p>
+            <button onclick="$('#alert-modal').classList.add('hidden')" class="w-full bg-primary text-primary-foreground py-8 rounded-[3rem] font-black uppercase tracking-widest shadow-xl active:scale-95 transition">Acknowledge</button>
         </div>
     `;
     modal.classList.remove('hidden');
 }
 
-function dismissAlert() { $('#alert-modal').classList.add('hidden'); }
+function applyTheme(t) {
+    state.theme = t; localStorage.setItem('admin_theme', t); document.documentElement.className = t;
+}
 
-// --- DASHBOARD MODULE ---
-
-async function renderDashboard(c) {
-    const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
-    const { data: dayOrders } = await sb.from('orders').select('*').gte('created_at', startOfDay.toISOString());
-    const { count: helpCount } = await sb.from('staff_calls').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-    
-    let actualRevenue = 0, grossRevenue = 0;
-    (dayOrders || []).forEach(o => {
-        actualRevenue += o.total_amount;
-        const disc = o.discount_percentage || 0;
-        grossRevenue += (o.total_amount / 1.05) / (1 - disc/100) * 1.05;
-    });
-
-    c.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 fade-in">
-            <div class="bg-card p-12 rounded-[3rem] border border-border shadow-sm">
-                <p class="text-[10px] font-black uppercase opacity-40 mb-3 tracking-widest text-center">Net Revenue</p>
-                <p class="text-5xl font-black tracking-tighter text-center italic">₹${actualRevenue.toFixed(0)}</p>
-                <div class="mt-6 flex justify-between text-[9px] font-black uppercase opacity-30"><span>Gross: ₹${grossRevenue.toFixed(0)}</span><span>Disc: ₹${(grossRevenue - actualRevenue).toFixed(0)}</span></div>
-            </div>
-            <div class="bg-card p-12 rounded-[3rem] border border-border shadow-sm">
-                <p class="text-[10px] font-black uppercase opacity-40 mb-3 tracking-widest text-center">Active Tickets</p>
-                <p class="text-5xl font-black tracking-tighter text-center italic">${dayOrders?.length || 0}</p>
-            </div>
-            <div class="bg-card p-12 rounded-[3rem] border border-border shadow-sm">
-                <p class="text-[10px] font-black uppercase opacity-40 mb-3 tracking-widest text-center">Help Needed</p>
-                <p class="text-5xl font-black tracking-tighter text-center italic ${helpCount > 0 ? 'text-red-500 animate-pulse' : ''}">${helpCount || 0}</p>
-            </div>
-        </div>
-        <div class="bg-card p-12 rounded-[4rem] border border-border">
-            <canvas id="mainChart" class="w-full max-h-96"></canvas>
+async function printBill(orderId) {
+    const { data: o } = await sb.from('orders').select('*, order_items(*, products(*)), tables(table_number)').eq('id', orderId).single();
+    if (!o) return;
+    const printArea = $('#printable-area');
+    printArea.innerHTML = `
+        <div style="font-family: 'Courier New', Courier, monospace; width: 80mm; padding: 6mm; text-align: center; font-weight: 900; color: black; background: white; line-height: 1.2;">
+            <h1 style="font-size: 24px; margin: 0;">HXOUSE COFFEE CO.</h1>
+            <p style="font-size: 11px; margin: 3px 0; letter-spacing: 2px;">CREATIVE COLLECTIVE JAIPUR</p>
+            <hr style="border-top: 2px dashed black; margin: 6mm 0;">
+            <p style="text-align: left; font-size: 12px; margin-bottom: 2mm;">SPOT: #${o.tables?.table_number || o.table_id || '?'}</p>
+            <p style="text-align: left; font-size: 12px; margin-bottom: 2mm;">TICKET: #${o.id.slice(0,8).toUpperCase()}</p>
+            <p style="text-align: left; font-size: 10px; opacity: 0.6;">DATE: ${new Date(o.created_at).toLocaleString()}</p>
+            <hr style="border-top: 1px dashed black; margin: 6mm 0;">
+            <table style="width: 100%; font-size: 12px; text-align: left;">
+                ${o.order_items?.map(item => `
+                    <tr><td>${item.quantity} x ${item.products?.name || 'Custom Meal'}</td><td style="text-align: right;">₹${(item.price_at_time_of_order * item.quantity).toFixed(0)}</td></tr>
+                `).join('') || ''}
+            </table>
+            <hr style="border-top: 2px solid black; margin: 6mm 0;">
+            <div style="text-align: right; font-size: 18px; margin-bottom: 8mm;"><strong>TOTAL: ₹${o.total_amount.toFixed(0)}</strong></div>
+            <p style="font-size: 11px; letter-spacing: 1px;">STAY FOCUSED. STAY CREATIVE.</p>
         </div>
     `;
-
-    new Chart($('#mainChart'), {
-        type: 'line',
-        data: {
-            labels: ['Morning', 'Lunch', 'Afternoon', 'Evening', 'Night'],
-            datasets: [{ 
-                data: [10, 45, 30, 85, 40], 
-                borderColor: '#1a1a1a', 
-                backgroundColor: 'rgba(0,0,0,0.02)',
-                fill: true,
-                tension: 0.5,
-                pointRadius: 0
-            }]
-        },
-        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } }
-    });
+    window.print();
 }
 
-// --- ORDER MODULE ---
-
-async function renderOrders(c) {
-    const { data } = await sb.from('orders').select('*, tables(table_number), customers(name), order_items(*, products(name))').order('created_at', { ascending: false }).limit(40);
-    
-    c.innerHTML = `
-        <div class="bg-card rounded-[3rem] border border-border overflow-hidden fade-in shadow-xl">
-            <div class="divide-y divide-border">
-                ${(data || []).map(o => `
-                    <div class="p-10 flex flex-wrap items-center justify-between hover:bg-secondary/20 transition">
-                        <div class="flex items-center space-x-10">
-                            <div class="w-20 h-20 rounded-[2rem] bg-secondary flex items-center justify-center font-black text-2xl shadow-inner border border-border">#${o.tables?.table_number || '?'}</div>
-                            <div>
-                                <p class="font-black uppercase text-base tracking-tighter italic">${o.customers?.name || 'Walk-in'}</p>
-                                <p class="text-[11px] font-bold opacity-30 uppercase tracking-widest mb-3">₹${o.total_amount.toFixed(2)} • ${o.source || 'CLIENT'}</p>
-                                <div class="flex flex-wrap gap-2">
-                                    ${o.order_items.map(i => `<span class="bg-primary/5 px-3 py-1 rounded-full text-[10px] font-black uppercase opacity-70 border border-border">${i.products?.name} x${i.quantity}</span>`).join('')}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-6 mt-8 lg:mt-0">
-                            <select onchange="statusUpdate('${o.id}', this.value)" class="bg-secondary px-6 py-4 rounded-2xl text-[10px] font-black uppercase border-none outline-none ring-1 ring-border focus:ring-primary">
-                                <option value="received" ${o.status === 'received' ? 'selected' : ''}>Received</option>
-                                <option value="preparing" ${o.status === 'preparing' ? 'selected' : ''}>Preparing</option>
-                                <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>Delivered</option>
-                                <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-                            </select>
-                            <button onclick="runPetPooja('${o.id}', ${o.tables?.table_number}, ${o.total_amount})" class="bg-primary text-primary-foreground px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl active:scale-90 transition">GENERATE POS BILL</button>
-                        </div>
-                    </div>
-                `).join('') || '<div class="p-20 text-center opacity-30 font-black uppercase text-xs tracking-widest">No active tickets found</div>'}
-            </div>
-        </div>
-    `;
-}
-
-async function statusUpdate(id, s) {
-    await sb.from('orders').update({ status: s }).eq('id', id);
-    showToast(`Order status synced: ${s}`);
-}
-
-// --- POS TERMINAL MODULE ---
-
-async function renderPOS(c) {
-    const { data: tables } = await sb.from('tables').select('*').order('table_number');
-    
-    c.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-10 h-full fade-in min-h-[700px]">
-            <div class="md:col-span-2 flex flex-col space-y-8 h-full">
-                <div class="flex items-center justify-between">
-                    <div id="pos-table-display" class="bg-primary text-primary-foreground px-8 py-3 rounded-full font-black text-xs uppercase tracking-widest">SELECT TABLE</div>
-                    <input type="text" id="pos-search" placeholder="Search item..." class="w-1/2 p-4 bg-card border border-border rounded-2xl font-bold shadow-sm outline-none focus:border-primary">
-                </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 overflow-y-auto pr-2" id="pos-menu-grid"></div>
-            </div>
-            <div class="bg-card rounded-[3rem] border border-border shadow-2xl p-10 flex flex-col">
-                <h3 class="font-black text-lg uppercase tracking-tighter italic mb-8">Cart Items</h3>
-                <div id="pos-cart-list" class="flex-grow space-y-4 overflow-y-auto mb-8 pr-2"></div>
-                <div class="pt-8 border-t border-border space-y-4">
-                    <div class="flex justify-between font-black text-xs opacity-40 uppercase"><span>Subtotal</span><span id="pos-sub">₹0</span></div>
-                    <div class="flex justify-between items-center">
-                        <label class="text-[10px] font-black uppercase opacity-40">Discount %</label>
-                        <input type="number" id="pos-disc" value="0" class="w-20 p-2 bg-secondary rounded-lg font-black text-center outline-none">
-                    </div>
-                    <div class="flex justify-between font-black text-3xl tracking-tighter uppercase italic pt-4"><span>Grand Total</span><span id="pos-tot">₹0</span></div>
-                    <button id="pos-submit" class="w-full bg-primary text-primary-foreground py-6 rounded-[2rem] font-black text-lg shadow-xl uppercase active:scale-95 transition" disabled>SAVE & KOT</button>
-                </div>
-            </div>
-        </div>
-        <div id="table-picker" class="fixed inset-0 bg-black/95 z-[120] flex items-center justify-center p-10 backdrop-blur-xl">
-            <div class="w-full max-w-4xl text-center">
-                <h2 class="text-4xl font-black text-white mb-12 uppercase tracking-tighter italic">Select Terminal Spot</h2>
-                <div class="grid grid-cols-4 md:grid-cols-6 gap-6">
-                    ${(tables || []).map(t => `<button onclick="setPOSTable(${t.table_number})" class="p-8 bg-white/5 hover:bg-white text-white hover:text-black border border-white/20 rounded-[2rem] font-black text-2xl transition-all">${t.table_number}</button>`).join('')}
-                </div>
-            </div>
-        </div>
-    `;
-
-    renderPOSMenu();
-    $('#pos-disc').oninput = updatePOSSummary;
-}
-
-function setPOSTable(num) {
-    state.activeTable = num;
-    $('#pos-table-display').textContent = `TABLE #${num}`;
-    $('#table-picker').classList.add('hidden');
-    updatePOSSummary();
-}
-
-function renderPOSMenu(q = '') {
-    const grid = $('#pos-menu-grid');
-    if(!grid) return;
-    grid.innerHTML = state.menuItems.filter(i => i.name.toLowerCase().includes(q.toLowerCase())).map(item => `
-        <button onclick="addToPOSCart(${item.id})" class="p-5 bg-card border border-border rounded-2xl text-left hover:border-primary transition group shadow-sm">
-            <p class="font-black uppercase text-[10px] leading-tight mb-2 tracking-tighter">${item.name}</p>
-            <p class="text-xs font-bold opacity-30 italic">₹${item.price}</p>
-        </button>
-    `).join('');
-}
-
-function addToPOSCart(id) {
-    const item = state.menuItems.find(i => i.id === id);
-    const exist = state.posCart.find(i => i.id === id);
-    if(exist) exist.qty++;
-    else state.posCart.push({ ...item, qty: 1 });
-    updatePOSSummary();
-}
-
-function updatePOSSummary() {
-    const list = $('#pos-cart-list');
-    if(!list) return;
-    list.innerHTML = state.posCart.map((i, idx) => `
-        <div class="flex items-center justify-between p-4 bg-secondary rounded-2xl border border-border">
-            <div><p class="font-black text-[10px] uppercase tracking-tighter">${i.name}</p></div>
-            <div class="flex items-center space-x-3">
-                <button onclick="state.posCart[${idx}].qty--; if(state.posCart[${idx}].qty<1) state.posCart.splice(${idx},1); updatePOSSummary()" class="w-8 h-8 rounded-full border border-border font-black">−</button>
-                <span class="font-black text-xs">${i.qty}</span>
-                <button onclick="state.posCart[${idx}].qty++; updatePOSSummary()" class="w-8 h-8 rounded-full border border-border font-black">+</button>
-            </div>
-        </div>
-    `).join('') || '<p class="p-10 text-center opacity-20 font-black uppercase text-[10px]">Cart Empty</p>';
-
-    const sub = state.posCart.reduce((s, i) => s + (i.price * i.qty), 0);
-    const disc = parseFloat($('#pos-disc').value) || 0;
-    const tot = (sub - (sub * disc/100)) * 1.05;
-
-    $('#pos-sub').textContent = `₹${sub.toFixed(0)}`;
-    $('#pos-tot').textContent = `₹${tot.toFixed(0)}`;
-    $('#pos-submit').disabled = (state.posCart.length === 0 || !state.activeTable);
-    
-    $('#pos-submit').onclick = async () => {
-        $('#pos-submit').disabled = true;
-        const payload = {
-            table_number_input: state.activeTable,
-            total_amount_input: tot,
-            discount_percentage_input: disc,
-            source_input: 'Staff',
-            order_items: state.posCart.map(i => ({ product_id: i.id, quantity: i.qty, price_at_time_of_order: i.price }))
-        };
-        const { data, error } = await sb.rpc('create_order_with_items', payload);
-        if(!error) { showToast("Sync Complete"); state.posCart = []; updatePOSSummary(); navigateTo('orders'); }
-        else showToast("Sync Error", true);
-    };
-}
-
-// --- CRM MODULE ---
-
-async function renderCRM(c) {
-    c.innerHTML = `
-        <div class="flex flex-wrap gap-4 mb-10 fade-in">
-            <input type="text" id="crm-search" placeholder="Search Name or WhatsApp..." class="flex-grow p-5 bg-card border border-border rounded-[2rem] font-bold shadow-xl outline-none focus:ring-2 ring-primary">
-            <button onclick="loadCRM()" class="bg-primary text-primary-foreground px-12 py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl">Search</button>
-        </div>
-        <div class="bg-card rounded-[3rem] border border-border overflow-hidden shadow-sm"><div id="crm-list" class="divide-y divide-border"></div></div>
-    `;
-    loadCRM();
-}
-
-async function loadCRM() {
-    const q = $('#crm-search')?.value;
-    let query = sb.from('customers').select('*').order('created_at', { ascending: false }).limit(50);
-    if (q) query = query.or(`name.ilike.%${q}%,whatsapp_number.ilike.%${q}%`);
-    const { data } = await query;
-    const list = $('#crm-list');
-    if(!list) return;
-
-    list.innerHTML = (data || []).map(u => `
-        <div class="p-10 flex items-center justify-between hover:bg-secondary/30 transition">
-            <div class="flex items-center space-x-8">
-                <div class="w-16 h-16 rounded-full bg-secondary flex items-center justify-center text-2xl shadow-inner border border-border">👤</div>
-                <div><p class="font-black uppercase text-sm italic tracking-tighter">${u.name}</p><p class="text-[10px] font-bold opacity-30 mt-1 tracking-widest">+91 ${u.whatsapp_number}</p></div>
-            </div>
-            <div class="flex items-center space-x-12">
-                <div class="text-right"><p class="text-[9px] font-black uppercase opacity-40 mb-1">Loyalty Wallet</p><p class="font-black text-3xl tracking-tighter italic uppercase text-primary">${u.loyalty_points} PTS</p></div>
-                <div class="flex space-x-3">
-                    <button onclick="modPoints('${u.id}', 50)" class="w-14 h-14 bg-green-500/10 text-green-600 rounded-3xl font-black text-xl shadow-sm transition active:scale-90 hover:bg-green-500 hover:text-white">+</button>
-                    <button onclick="modPoints('${u.id}', -50)" class="w-14 h-14 bg-red-500/10 text-red-600 rounded-3xl font-black text-xl shadow-sm transition active:scale-90 hover:bg-red-500 hover:text-white">−</button>
-                    <button onclick="deleteMember('${u.id}')" class="p-4 opacity-10 hover:opacity-100 transition grayscale hover:grayscale-0">🗑</button>
-                </div>
-            </div>
-        </div>
-    `).join('') || '<div class="p-20 text-center opacity-30 font-black text-xs uppercase tracking-widest italic">No customers found</div>';
-}
-
-async function modPoints(id, amt) {
-    const { error } = await sb.rpc(amt > 0 ? 'increment_loyalty_points' : 'redeem_loyalty_points', { customer_id_input: id, [amt > 0 ? 'points_to_add' : 'points_to_redeem']: Math.abs(amt) });
-    if (!error) { showToast("Sync Complete"); loadCRM(); }
-    else showToast("Sync Error", true);
-}
-
-async function deleteMember(id) {
-    if (confirm("Permanently wipe member record?")) { await sb.from('customers').delete().eq('id', id); loadCRM(); }
-}
-
-// --- INTEGRATION: PET POOJA ---
-
-function runPetPooja(id, table, amt) {
-    const url = state.settings.pet_pooja_base_url;
-    const rid = state.settings.pet_pooja_restaurant_id;
-
-    if (!url || !rid || !url.includes('http')) {
-        showToast("POS GATEWAY CONFIG REQUIRED", true);
-        navigateTo('config');
-        return;
-    }
-    const final = `${url}?restaurant_id=${rid}&table_no=${table}&order_id=${id}&amount=${amt}`;
-    window.open(final, '_blank');
-}
-
-// --- ENGINE CONFIG ---
-
-async function renderSettings(c) {
-    c.innerHTML = `
-        <div class="bg-card p-14 rounded-[4rem] border border-border shadow-2xl max-w-2xl fade-in mx-auto">
-            <h3 class="text-3xl font-black mb-12 uppercase tracking-tighter italic">System Config</h3>
-            <form id="config-form" class="space-y-8">
-                <div>
-                    <label class="text-[10px] font-black uppercase opacity-40 ml-4 tracking-[0.3em]">POS Billing Gateway</label>
-                    <input type="text" name="pet_pooja_base_url" value="${state.settings.pet_pooja_base_url || 'https://pos.petpooja.com/billing'}" class="w-full mt-3 p-6 bg-secondary rounded-[2rem] font-bold border-none outline-none focus:ring-2 ring-primary shadow-inner">
-                </div>
-                <div>
-                    <label class="text-[10px] font-black uppercase opacity-40 ml-4 tracking-[0.3em]">Terminal Auth Token</label>
-                    <input type="text" name="pet_pooja_restaurant_id" value="${state.settings.pet_pooja_restaurant_id || ''}" class="w-full mt-3 p-6 bg-secondary rounded-[2rem] font-bold border-none outline-none focus:ring-2 ring-primary shadow-inner">
-                </div>
-                <div class="pt-8">
-                    <button type="submit" class="w-full bg-primary text-primary-foreground py-7 rounded-[2.5rem] font-black text-xl shadow-2xl active:scale-95 transition tracking-widest uppercase">Sync Global Config</button>
-                </div>
-            </form>
-        </div>
-    `;
-
-    $('#config-form').onsubmit = async (e) => {
-        e.preventDefault();
-        const data = new FormData(e.target);
-        const upd = Array.from(data.entries()).map(([k, v]) => ({ key: k, value: v }));
-        const { error } = await sb.from('app_settings').upsert(upd);
-        if (!error) { showToast("Config Live"); refreshGlobalData(); }
-        else showToast("Sync Error", true);
-    };
-}
-
-// --- BOOTSTRAP ---
-
-function showToast(m, err = false) {
-    const t = $('#toast'); t.querySelector('p').textContent = m.toUpperCase();
-    t.classList.remove('hidden', 'bg-destructive');
-    if(err) t.classList.add('bg-destructive');
-    setTimeout(() => t.classList.add('hidden'), 2500);
-}
-
-// Feature Stubs (Expandable)
-function renderAlerts(c) { 
-    c.innerHTML = `<div id="call-list" class="bg-card rounded-[3rem] border border-border overflow-hidden fade-in shadow-xl"></div>`;
-    sb.from('staff_calls').select('*, tables(table_number)').eq('status', 'pending').order('created_at', { ascending: true }).then(({data}) => {
-        $('#call-list').innerHTML = (data || []).map(call => `
-            <div class="p-10 flex items-center justify-between border-b border-border last:border-0 hover:bg-secondary/20 transition">
-                <div class="flex items-center space-x-10">
-                    <div class="w-20 h-20 bg-red-500 rounded-[2.5rem] flex items-center justify-center text-white text-4xl shadow-xl animate-pulse">🛎</div>
-                    <div><p class="font-black uppercase text-xl italic tracking-tighter">TABLE #${call.tables?.table_number}</p><p class="text-[11px] font-bold opacity-30 uppercase tracking-widest mt-1">REQUEST: ${call.call_type}</p></div>
-                </div>
-                <button onclick="sb.from('staff_calls').update({status:'resolved'}).eq('id','${call.id}').then(()=>navigateTo('alerts'))" class="bg-primary text-primary-foreground px-10 py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-2xl active:scale-90 transition">MARK RESOLVED</button>
-            </div>
-        `).join('') || '<div class="p-20 text-center opacity-20 font-black uppercase text-xs tracking-[0.5em] italic">No active help requests</div>';
-    });
-}
-function renderMenu(c) { c.innerHTML = `<div class="p-20 text-center opacity-30 font-black uppercase text-xs italic tracking-widest">Menu Library Interface Loading...</div>`; }
-function renderReports(c) { c.innerHTML = `<div class="p-20 text-center opacity-30 font-black uppercase text-xs italic tracking-widest">Revenue log processor connecting...</div>`; }
-
+// Auth Lifecycle
 document.addEventListener('DOMContentLoaded', async () => {
-    $('#login-form').onsubmit = async (e) => {
+    $('#login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const btn = $('#login-submit'); btn.disabled = true; btn.textContent = "VERIFYING...";
         const { data, error } = await sb.auth.signInWithPassword({ email: $('#email').value, password: $('#password').value });
-        if (error) $('#login-error').textContent = error.message.toUpperCase();
-        else { state.user = data.user; initAdmin(); }
-    };
-
+        if (error) { $('#login-error').textContent = error.message; btn.disabled = false; btn.textContent = "ACCESS CONSOLE"; }
+        else { state.user = data.user; initializeApp(); }
+    });
     const { data: { session } } = await sb.auth.getSession();
-    if (session) { state.user = session.user; initAdmin(); }
-    else { $('#login-screen').classList.remove('hidden'); }
+    if (session) { state.user = session.user; initializeApp(); }
+    else $('#login-screen').classList.remove('hidden');
 });
+
+$('#theme-toggle').onclick = () => applyTheme(state.theme === 'light' ? 'dark' : 'light');
+$('#logout-btn').onclick = async () => { await sb.auth.signOut(); window.location.reload(); };
+
 </script>
 </body>
 </html>
